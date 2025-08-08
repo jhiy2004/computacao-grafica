@@ -1,0 +1,49 @@
+object Form1: TForm1
+  Left = 345
+  Height = 323
+  Top = 32
+  Width = 538
+  Caption = 'Form1'
+  ClientHeight = 299
+  ClientWidth = 538
+  Menu = mainMenu
+  object image: TImage
+    Left = 16
+    Height = 195
+    Top = 40
+    Width = 266
+    OnMouseDown = imageMouseDown
+    OnMouseMove = imageMouseMove
+    OnMouseUp = imageMouseUp
+  end
+  object mainMenu: TMainMenu
+    Left = 432
+    Top = 56
+    object arquivoMenu: TMenuItem
+      Caption = 'Arquivo'
+      object abrirArquivo: TMenuItem
+        Caption = 'Abrir arquivo'
+        OnClick = abrirArquivoClick
+      end
+    end
+    object operacoesMenu: TMenuItem
+      Caption = 'Operações'
+      OnClick = operacoesMenuClick
+      object desenharMenuItem: TMenuItem
+        Caption = 'Desenhar'
+        OnClick = desenharMenuItemClick
+      end
+      object MenuItem3: TMenuItem
+        Caption = 'Linha'
+      end
+      object MenuItem4: TMenuItem
+        Caption = 'MenuItem4'
+        OnClick = MenuItem4Click
+      end
+    end
+  end
+  object pictureDialog: TOpenPictureDialog
+    Left = 432
+    Top = 137
+  end
+end
