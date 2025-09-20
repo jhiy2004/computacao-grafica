@@ -86,7 +86,7 @@ begin
     image.Canvas.Pixels[X, Y] := clred;
   end;
 
-  if((opt = 2) or (opt = 4) or (opt = 5) or (opt = 6)) then
+  if((opt = 2) or (opt = 3) or (opt = 4) or (opt = 5) or (opt = 6)) then
   begin
     p1.X := X;
     p1.Y := Y;
@@ -105,7 +105,7 @@ end;
 procedure TForm1.imageMouseUp(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 var
-  raio, xp, yp, a, m, dx, dy: Double;
+  raio, xp, yp, a, m, dx, dy, t: Double;
   xi, yi, xn, i: Integer;
   cos1, sen1: Double;
 begin
@@ -175,6 +175,23 @@ begin
           yp := yp + 1;
         end;
       end;
+    end;
+  end;
+
+  if (opt = 3) then
+  begin
+    p2.X := X;
+    p2.Y := Y;
+    t := 0;
+
+    while t <= 1 do
+    begin
+      xp := p1.X + (p2.X - p1.X) * t;
+      yp := p1.Y + (p2.Y - p1.Y) * t;
+
+      image.Canvas.Pixels[Round(xp), Round(yp)] := clRed;
+
+      t := t + 0.001;
     end;
   end;
 
@@ -266,7 +283,7 @@ end;
 
 procedure TForm1.MenuItem4Click(Sender: TObject);
 begin
-
+  opt := 3;
 end;
 
 procedure TForm1.MenuItem5Click(Sender: TObject);
