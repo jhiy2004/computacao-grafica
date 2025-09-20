@@ -36,6 +36,7 @@ type
       Shift: TShiftState; X, Y: Integer);
     procedure DesenharCirculoClick(Sender: TObject);
     procedure CirculoParametricoClick(Sender: TObject);
+    procedure MenuItem3Click(Sender: TObject);
     procedure operacoesMenuClick(Sender: TObject);
     procedure MenuItem4Click(Sender: TObject);
     procedure MenuItem5Click(Sender: TObject);
@@ -85,7 +86,7 @@ begin
     image.Canvas.Pixels[X, Y] := clred;
   end;
 
-  if((opt = 4) or (opt = 5) or (opt = 6)) then
+  if((opt = 2) or (opt = 4) or (opt = 5) or (opt = 6)) then
   begin
     p1.X := X;
     p1.Y := Y;
@@ -104,12 +105,78 @@ end;
 procedure TForm1.imageMouseUp(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 var
-  raio, xp, yp, a: Double;
+  raio, xp, yp, a, m, dx, dy: Double;
   xi, yi, xn, i: Integer;
   cos1, sen1: Double;
 begin
   if (opt = 1) then
     desenhar := False;
+
+  if (opt = 2) then
+  begin
+    p2.X := X;
+    p2.Y := Y;
+
+    dx := Abs(p2.X - p1.X);
+    dy := Abs(p2.Y - p1.Y);
+
+    if dx >= dy then
+    begin
+      // percorre em X
+      if p1.X <= p2.X then
+      begin
+        xp := p1.X;
+        while xp <= p2.X do
+        begin
+          m := (p2.Y - p1.Y) /(p2.X - p1.X);
+
+          yp := m * (xp - p1.X) + p1.Y;
+          image.Canvas.Pixels[Round(xp), Round(yp)] := clRed;
+          xp := xp + 1;
+        end;
+      end
+      else
+      begin
+        xp := p2.X;
+        while xp <= p1.X do
+        begin
+          m := (p1.Y - p2.Y) /(p1.X - p2.X);
+
+          yp := m * (xp - p2.X) + p2.Y;
+          image.Canvas.Pixels[Round(xp), Round(yp)] := clRed;
+          xp := xp + 1;
+        end;
+      end;
+    end
+    else
+    begin
+      // percorre em Y
+      if p1.Y <= p2.Y then
+      begin
+        yp := p1.Y;
+        while yp <= p2.Y do
+        begin
+          m := (p2.Y - p1.Y) /(p2.X - p1.X);
+
+          xp := (yp - p1.Y) / m + p1.X;
+          image.Canvas.Pixels[Round(xp), Round(yp)] := clRed;
+          yp := yp + 1;
+        end;
+      end
+      else
+      begin
+        yp := p2.Y;
+        while yp <= p1.Y do
+        begin
+          m := (p1.Y - p2.Y) /(p1.X - p2.X);
+
+          xp := (yp - p2.Y) / m + p2.X;
+          image.Canvas.Pixels[Round(xp), Round(yp)] := clRed;
+          yp := yp + 1;
+        end;
+      end;
+    end;
+  end;
 
   if (opt = 4) then
   begin
@@ -185,6 +252,11 @@ end;
 procedure TForm1.CirculoParametricoClick(Sender: TObject);
 begin
      opt := 5;
+end;
+
+procedure TForm1.MenuItem3Click(Sender: TObject);
+begin
+     opt := 2;
 end;
 
 procedure TForm1.operacoesMenuClick(Sender: TObject);
