@@ -41,6 +41,10 @@ object Form1: TForm1
         Caption = 'Linha Parametrica'
         OnClick = MenuItem4Click
       end
+      object MenuItem6: TMenuItem
+        Caption = 'Linha Bresenham'
+        OnClick = MenuItem6Click
+      end
       object MenuItem1: TMenuItem
         Caption = 'Circulo'
         OnClick = DesenharCirculoClick
