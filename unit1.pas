@@ -8,6 +8,15 @@ uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, ExtCtrls, Menus,
   ExtDlgs;
 
+TYPE
+  Line = RECORD
+    p1, p2 : TPoint;
+  END;
+
+  Polygon = RECORD
+    edges : ARRAY OF Line;
+  END;
+
 type
 
   { TForm1 }
@@ -18,6 +27,8 @@ type
     MenuItem1: TMenuItem;
     MenuItem2: TMenuItem;
     MenuItem5: TMenuItem;
+    MenuItem6: TMenuItem;
+    MenuItem7: TMenuItem;
     pictureDialog: TOpenPictureDialog;
     operacoesMenu: TMenuItem;
     desenharMenuItem: TMenuItem;
@@ -30,19 +41,22 @@ type
     procedure desenharMenuItemClick(Sender: TObject);
     procedure imageMouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
-    procedure imageMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer
-      );
+    procedure imageMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
     procedure imageMouseUp(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure DesenharCirculoClick(Sender: TObject);
     procedure CirculoParametricoClick(Sender: TObject);
+    procedure FloodFill4Click(Sender: TObject);
+    procedure FloodFill8Click(Sender: TObject);
+    procedure DesenharPoligonoClick(Sender: TObject);
     procedure operacoesMenuClick(Sender: TObject);
     procedure MenuItem4Click(Sender: TObject);
     procedure MenuItem5Click(Sender: TObject);
   private
-
   public
-
+    procedure floodFill4(x, y : Integer; cor, borda : TColor);
+    procedure floodFill8(x, y : Integer; cor, borda : TColor);
+    procedure fillPolygon(p : Polygon);
   end;
 
 var
@@ -51,6 +65,9 @@ var
   desenhar: boolean;
   p1: TPoint;
   p2: TPoint;
+  poly: Polygon;
+  hasPrevious: Boolean = False;
+  previousPoint: TPoint;
 
 implementation
 
@@ -78,6 +95,8 @@ end;
 
 procedure TForm1.imageMouseDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
+var
+  newLine: Line;
 begin
   if(opt = 1) then
   begin
@@ -90,10 +109,38 @@ begin
     p1.X := X;
     p1.Y := Y;
   end;
+
+  if (opt = 7) then
+  begin
+      floodFill4(X, Y, clred, clblack);
+  end;
+
+  if (opt = 8) then
+  begin
+      floodFill8(X, Y, clred, clblack);
+  end;
+
+  if (opt = 9) then
+begin
+  if hasPrevious then
+  begin
+    // Criar nova reta
+
+    newLine.p1 := previousPoint;
+    newLine.p2 := Point(X, Y);
+
+    // Inserir no polígono
+    SetLength(poly.edges, Length(poly.edges) + 1);
+    poly.edges[High(poly.edges)] := newLine;
+  end;
+
+  // Atualiza ponto anterior
+  previousPoint := Point(X, Y);
+  hasPrevious := True;
+end;
 end;
 
-procedure TForm1.imageMouseMove(Sender: TObject; Shift: TShiftState; X,
-  Y: Integer);
+procedure TForm1.imageMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
 begin
      if (opt = 1) and (desenhar = true) then
      begin
@@ -187,20 +234,76 @@ begin
      opt := 5;
 end;
 
+procedure TForm1.FloodFill4Click(Sender: TObject);
+begin
+     opt := 7;
+end;
+
+procedure TForm1.FloodFill8Click(Sender: TObject);
+begin
+     opt := 8;
+end;
+
+procedure TForm1.DesenharPoligonoClick(Sender: TObject);
+begin
+     opt := 9;
+end;
+
 procedure TForm1.operacoesMenuClick(Sender: TObject);
 begin
-
 end;
 
 procedure TForm1.MenuItem4Click(Sender: TObject);
 begin
-
 end;
 
 procedure TForm1.MenuItem5Click(Sender: TObject);
+begin
+end;
+
+procedure TForm1.floodFill4(x, y : Integer; cor, borda : TColor);
+var bmp: TBitmap;
+begin
+  bmp := image.Picture.Bitmap;
+  if (bmp = nil) then Exit;
+  if (x < 0) or (y < 0) or (x >= bmp.Width) or (y >= bmp.Height) then Exit;
+  if (bmp.Canvas.Pixels[x,y] = borda) or (bmp.Canvas.Pixels[x,y] = cor) then Exit;
+
+  bmp.Canvas.Pixels[x,y] := cor;
+
+  if x+1 < bmp.Width then floodFill4(x+1, y, cor, borda);
+  if x-1 >= 0 then floodFill4(x-1, y, cor, borda);
+  if y+1 < bmp.Height then floodFill4(x, y+1, cor, borda);
+  if y-1 >= 0 then floodFill4(x, y-1, cor, borda);
+end;
+
+procedure TForm1.floodFill8(x, y: Integer; cor, borda: TColor);
+var
+  bmp: TBitmap;
+begin
+  bmp := image.Picture.Bitmap;
+  if (bmp = nil) then Exit;
+  if (x < 0) or (y < 0) or (x >= bmp.Width) or (y >= bmp.Height) then Exit;
+  if (bmp.Canvas.Pixels[x,y] = borda) or (bmp.Canvas.Pixels[x,y] = cor) then Exit;
+
+  bmp.Canvas.Pixels[x,y] := cor;
+
+  // 4 direções principais
+  floodFill8(x+1, y, cor, borda);
+  floodFill8(x-1, y, cor, borda);
+  floodFill8(x, y+1, cor, borda);
+  floodFill8(x, y-1, cor, borda);
+
+  // 4 diagonais
+  floodFill8(x+1, y+1, cor, borda);
+  floodFill8(x+1, y-1, cor, borda);
+  floodFill8(x-1, y+1, cor, borda);
+  floodFill8(x-1, y-1, cor, borda);
+end;
+
+procedure TForm1.fillPolygon(p: Polygon);
 begin
 
 end;
 
 end.
-
