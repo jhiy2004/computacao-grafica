@@ -4,7 +4,7 @@ object Form1: TForm1
   Top = 32
   Width = 538
   Caption = 'Form1'
-  ClientHeight = 301
+  ClientHeight = 323
   ClientWidth = 538
   Menu = mainMenu
   object image: TImage
@@ -35,10 +35,15 @@ object Form1: TForm1
       end
       object MenuItem3: TMenuItem
         Caption = 'Linha'
+        OnClick = MenuItem3Click
       end
       object MenuItem4: TMenuItem
-        Caption = 'MenuItem4'
+        Caption = 'Linha Parametrica'
         OnClick = MenuItem4Click
+      end
+      object MenuItem6: TMenuItem
+        Caption = 'Linha Bresenham'
+        OnClick = MenuItem6Click
       end
       object MenuItem1: TMenuItem
         Caption = 'Circulo'
@@ -52,15 +57,15 @@ object Form1: TForm1
         Caption = 'Circulo Graus'
         OnClick = CirculoGrausClick
       end
-      object MenuItem6: TMenuItem
+      object MenuItem7: TMenuItem
         Caption = 'FloodFill-4'
         OnClick = FloodFill4Click
       end
-      object MenuItem7: TMenuItem
+      object MenuItem8: TMenuItem
         Caption = 'FloodFill8'
         OnClick = FloodFill8Click
       end
-      object MenuItem8: TMenuItem
+      object MenuItem9: TMenuItem
         Caption = 'Desenhar poligono'
         OnClick = DesenharPoligonoClick
       end
