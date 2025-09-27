@@ -1,24 +1,415 @@
 object Form1: TForm1
   Left = 345
-  Height = 323
+  Height = 558
   Top = 32
-  Width = 538
+  Width = 958
   Caption = 'Form1'
-  ClientHeight = 301
-  ClientWidth = 538
+  ClientHeight = 558
+  ClientWidth = 958
   Menu = mainMenu
+  ParentBiDiMode = False
   object image: TImage
     Left = 16
-    Height = 195
+    Height = 464
     Top = 40
-    Width = 266
+    Width = 530
     OnMouseDown = imageMouseDown
     OnMouseMove = imageMouseMove
     OnMouseUp = imageMouseUp
   end
+  object EscalaLabel: TLabel
+    Left = 640
+    Height = 21
+    Top = 72
+    Width = 42
+    Caption = 'Escala'
+    Font.CharSet = ANSI_CHARSET
+    Font.Height = -16
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    ParentFont = False
+  end
+  object LocalRadioButton: TRadioButton
+    Left = 640
+    Height = 19
+    Top = 108
+    Width = 46
+    Caption = 'Local'
+    TabOrder = 0
+    OnChange = LocalRadioButtonChange
+  end
+  object GlobalRadioButton: TRadioButton
+    Left = 640
+    Height = 19
+    Top = 148
+    Width = 52
+    Caption = 'Global'
+    TabOrder = 1
+    OnChange = GlobalRadioButtonChange
+  end
+  object XEscalaLabel: TLabel
+    Left = 759
+    Height = 15
+    Top = 76
+    Width = 7
+    Caption = 'X'
+  end
+  object YEscalaLabel: TLabel
+    Left = 816
+    Height = 15
+    Top = 76
+    Width = 7
+    Caption = 'Y'
+  end
+  object ZEscalaLabel: TLabel
+    Left = 872
+    Height = 15
+    Top = 76
+    Width = 7
+    Caption = 'Z'
+  end
+  object XEscalaEdit: TEdit
+    Left = 744
+    Height = 23
+    Top = 104
+    Width = 40
+    TabOrder = 2
+    Text = '0'
+    OnChange = XEscalaEditChange
+  end
+  object YEscalaEdit: TEdit
+    Left = 800
+    Height = 23
+    Top = 104
+    Width = 40
+    TabOrder = 3
+    Text = '0'
+    OnChange = XEscalaEditChange
+  end
+  object ZEscalaEdit: TEdit
+    Left = 856
+    Height = 23
+    Top = 104
+    Width = 40
+    TabOrder = 4
+    Text = '0'
+    OnChange = XEscalaEditChange
+  end
+  object GlobalEscalaEdit: TEdit
+    Left = 744
+    Height = 23
+    Top = 144
+    Width = 40
+    TabOrder = 5
+    Text = '0'
+    OnChange = XEscalaEditChange
+  end
+  object TransLabel: TLabel
+    Left = 640
+    Height = 21
+    Top = 184
+    Width = 73
+    Caption = 'Translação'
+    Font.CharSet = ANSI_CHARSET
+    Font.Height = -16
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    ParentFont = False
+  end
+  object XEscalaLabel1: TLabel
+    Left = 759
+    Height = 15
+    Top = 190
+    Width = 7
+    Caption = 'X'
+  end
+  object YEscalaLabel1: TLabel
+    Left = 816
+    Height = 15
+    Top = 190
+    Width = 7
+    Caption = 'Y'
+  end
+  object ZEscalaLabel1: TLabel
+    Left = 872
+    Height = 15
+    Top = 190
+    Width = 7
+    Caption = 'Z'
+  end
+  object TransRadioButton: TRadioButton
+    Left = 640
+    Height = 17
+    Top = 224
+    Width = 18
+    TabOrder = 6
+    OnChange = TransRadioButtonChange
+  end
+  object XTransEdit: TEdit
+    Left = 744
+    Height = 23
+    Top = 218
+    Width = 40
+    TabOrder = 7
+    Text = '0'
+    OnChange = XEscalaEditChange
+  end
+  object YTransEdit: TEdit
+    Left = 800
+    Height = 23
+    Top = 218
+    Width = 40
+    TabOrder = 8
+    Text = '0'
+    OnChange = XEscalaEditChange
+  end
+  object ZTransEdit: TEdit
+    Left = 856
+    Height = 23
+    Top = 218
+    Width = 40
+    TabOrder = 9
+    Text = '0'
+    OnChange = XEscalaEditChange
+  end
+  object RotLabel: TLabel
+    Left = 640
+    Height = 21
+    Top = 264
+    Width = 56
+    Caption = 'Rotação'
+    Font.CharSet = ANSI_CHARSET
+    Font.Height = -16
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    ParentFont = False
+  end
+  object RotOrigemButton: TRadioButton
+    Left = 640
+    Height = 19
+    Top = 304
+    Width = 58
+    Caption = 'Origem'
+    TabOrder = 10
+    OnChange = RotOrigemButtonChange
+  end
+  object RotCentroButton: TRadioButton
+    Left = 640
+    Height = 19
+    Top = 344
+    Width = 108
+    Caption = 'Centro do objeto'
+    TabOrder = 11
+    OnChange = RotCentroButtonChange
+  end
+  object EixoEdit: TEdit
+    Left = 856
+    Height = 23
+    Top = 300
+    Width = 40
+    TabOrder = 12
+    Text = 'Y'
+    OnChange = XEscalaEditChange
+  end
+  object GrausEdit: TEdit
+    Left = 856
+    Height = 23
+    Top = 340
+    Width = 40
+    TabOrder = 13
+    Text = '0'
+    OnChange = XEscalaEditChange
+  end
+  object EixoLabel: TLabel
+    Left = 806
+    Height = 15
+    Top = 304
+    Width = 21
+    Caption = 'Eixo'
+  end
+  object GrausLabel: TLabel
+    Left = 806
+    Height = 15
+    Top = 344
+    Width = 30
+    Caption = 'Graus'
+  end
+  object SheLabel: TLabel
+    Left = 640
+    Height = 21
+    Top = 384
+    Width = 62
+    Caption = 'Shearing'
+    Font.CharSet = ANSI_CHARSET
+    Font.Height = -16
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    ParentFont = False
+  end
+  object Sh1: TEdit
+    Left = 672
+    Height = 23
+    Top = 424
+    Width = 24
+    TabOrder = 14
+    Text = '0'
+    OnChange = XEscalaEditChange
+  end
+  object Sh2: TEdit
+    Left = 712
+    Height = 23
+    Top = 424
+    Width = 24
+    TabOrder = 15
+    Text = '0'
+    OnChange = XEscalaEditChange
+  end
+  object Sh3: TEdit
+    Left = 752
+    Height = 23
+    Top = 424
+    Width = 24
+    TabOrder = 16
+    Text = '0'
+    OnChange = XEscalaEditChange
+  end
+  object Sh4: TEdit
+    Left = 792
+    Height = 23
+    Top = 424
+    Width = 24
+    TabOrder = 17
+    Text = '0'
+    OnChange = XEscalaEditChange
+  end
+  object Sh5: TEdit
+    Left = 672
+    Height = 23
+    Top = 456
+    Width = 24
+    TabOrder = 18
+    Text = '0'
+    OnChange = XEscalaEditChange
+  end
+  object Sh6: TEdit
+    Left = 712
+    Height = 23
+    Top = 456
+    Width = 24
+    TabOrder = 19
+    Text = '0'
+    OnChange = XEscalaEditChange
+  end
+  object Sh7: TEdit
+    Left = 752
+    Height = 23
+    Top = 456
+    Width = 24
+    TabOrder = 20
+    Text = '0'
+    OnChange = XEscalaEditChange
+  end
+  object Sh8: TEdit
+    Left = 792
+    Height = 23
+    Top = 456
+    Width = 24
+    TabOrder = 21
+    Text = '0'
+    OnChange = XEscalaEditChange
+  end
+  object Sh9: TEdit
+    Left = 672
+    Height = 23
+    Top = 488
+    Width = 24
+    TabOrder = 22
+    Text = '0'
+    OnChange = XEscalaEditChange
+  end
+  object Sh10: TEdit
+    Left = 712
+    Height = 23
+    Top = 488
+    Width = 24
+    TabOrder = 23
+    Text = '0'
+    OnChange = XEscalaEditChange
+  end
+  object Sh11: TEdit
+    Left = 752
+    Height = 23
+    Top = 488
+    Width = 24
+    TabOrder = 24
+    Text = '0'
+    OnChange = XEscalaEditChange
+  end
+  object Sh12: TEdit
+    Left = 792
+    Height = 23
+    Top = 488
+    Width = 24
+    TabOrder = 25
+    Text = '0'
+    OnChange = XEscalaEditChange
+  end
+  object Sh13: TEdit
+    Left = 672
+    Height = 23
+    Top = 520
+    Width = 24
+    TabOrder = 26
+    Text = '0'
+    OnChange = XEscalaEditChange
+  end
+  object Sh14: TEdit
+    Left = 712
+    Height = 23
+    Top = 520
+    Width = 24
+    TabOrder = 27
+    Text = '0'
+    OnChange = XEscalaEditChange
+  end
+  object Sh15: TEdit
+    Left = 752
+    Height = 23
+    Top = 520
+    Width = 24
+    TabOrder = 28
+    Text = '0'
+    OnChange = XEscalaEditChange
+  end
+  object Sh16: TEdit
+    Left = 792
+    Height = 23
+    Top = 520
+    Width = 24
+    TabOrder = 29
+    Text = '0'
+    OnChange = XEscalaEditChange
+  end
+  object ShRadioButton: TRadioButton
+    Left = 640
+    Height = 17
+    Top = 424
+    Width = 18
+    TabOrder = 30
+    OnChange = ShRadioButtonChange
+  end
+  object ExecutarButton: TButton
+    Left = 848
+    Height = 73
+    Top = 440
+    Width = 88
+    Caption = 'Executar'
+    TabOrder = 31
+    OnClick = ExecutarButtonClick
+  end
   object mainMenu: TMainMenu
-    Left = 432
-    Top = 56
+    Left = 864
+    Top = 8
     object arquivoMenu: TMenuItem
       Caption = 'Arquivo'
       object abrirArquivo: TMenuItem
@@ -77,10 +468,18 @@ object Form1: TForm1
         Caption = 'Preencher Poligono'
         OnClick = MenuItem11Click
       end
+      object MenuItem12: TMenuItem
+        Caption = 'Projeção'
+        OnClick = MenuItem12Click
+      end
+      object MenuItem13: TMenuItem
+        Caption = 'Limpar'
+        OnClick = MenuItem13Click
+      end
     end
   end
   object pictureDialog: TOpenPictureDialog
-    Left = 432
-    Top = 137
+    Left = 768
+    Top = 8
   end
 end
