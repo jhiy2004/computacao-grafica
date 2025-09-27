@@ -4,7 +4,7 @@ object Form1: TForm1
   Top = 32
   Width = 538
   Caption = 'Form1'
-  ClientHeight = 323
+  ClientHeight = 301
   ClientWidth = 538
   Menu = mainMenu
   object image: TImage
@@ -68,6 +68,14 @@ object Form1: TForm1
       object MenuItem9: TMenuItem
         Caption = 'Desenhar poligono'
         OnClick = DesenharPoligonoClick
+      end
+      object MenuItem10: TMenuItem
+        Caption = 'Fechar poligono'
+        OnClick = MenuItem10Click
+      end
+      object MenuItem11: TMenuItem
+        Caption = 'Preencher Poligono'
+        OnClick = MenuItem11Click
       end
     end
   end
