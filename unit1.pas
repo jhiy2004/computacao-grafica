@@ -25,6 +25,8 @@ type
     image: TImage;
     mainMenu: TMainMenu;
     MenuItem1: TMenuItem;
+    MenuItem10: TMenuItem;
+    MenuItem11: TMenuItem;
     MenuItem2: TMenuItem;
     MenuItem3: TMenuItem;
     MenuItem4: TMenuItem;
@@ -51,6 +53,8 @@ type
     procedure FloodFill4Click(Sender: TObject);
     procedure FloodFill8Click(Sender: TObject);
     procedure DesenharPoligonoClick(Sender: TObject);
+    procedure MenuItem10Click(Sender: TObject);
+    procedure MenuItem11Click(Sender: TObject);
     procedure MenuItem3Click(Sender: TObject);
     procedure MenuItem6Click(Sender: TObject);
     procedure operacoesMenuClick(Sender: TObject);
@@ -61,6 +65,8 @@ type
     procedure floodFill4(x, y : Integer; cor, borda : TColor);
     procedure floodFill8(x, y : Integer; cor, borda : TColor);
     procedure fillPolygon(p : Polygon);
+    procedure lineBresenham(p1, p2 : TPoint);
+    procedure InvertPixel(x, y: Integer);
   end;
 
 var
@@ -133,6 +139,8 @@ begin
     newLine.p1 := previousPoint;
     newLine.p2 := Point(X, Y);
 
+    lineBresenham(newLine.p1, newLine.p2);
+
     // Inserir no polígono
     SetLength(poly.edges, Length(poly.edges) + 1);
     poly.edges[High(poly.edges)] := newLine;
@@ -150,6 +158,58 @@ begin
      begin
        image.Canvas.Pixels[X, Y] := clred;
      end;
+end;
+
+procedure TForm1.lineBresenham(p1, p2: TPoint);
+var
+  raio, xp, yp, a, m, dx, dy, t, d, sx, sy: Double;
+  xi, yi, xn, i: Integer;
+begin
+     dx := Abs(p2.X - p1.X);
+     dy := Abs(p2.Y - p1.Y);
+
+    if (p1.X < p2.X) then sx := 1 else sx := -1;
+    if (p1.Y < p2.Y) then sy := 1 else sy := -1;
+
+    xp := p1.X;
+    yp := p1.Y;
+
+    image.Canvas.Pixels[Round(xp), Round(yp)] := clRed;
+
+    if (dx > dy) then
+    begin
+      // Caminha em X
+      d := 2 * dy - dx;
+      while (xp <> p2.X) do
+      begin
+        xp := xp + sx;
+        if (d < 0) then
+          d := d + 2 * dy
+        else
+        begin
+          d := d + 2 * (dy - dx);
+          yp := yp + sy;
+        end;
+        image.Canvas.Pixels[Round(xp), Round(yp)] := clRed;
+      end;
+    end
+    else
+    begin
+      // Caminha em Y
+      d := 2 * dx - dy;
+      while (yp <> p2.Y) do
+      begin
+           yp := yp + sy;
+           if (d < 0) then
+              d := d + 2 * dx
+           else
+           begin
+                d := d + 2 * (dx - dy);
+                xp := xp + sx;
+           end;
+      image.Canvas.Pixels[Round(xp), Round(yp)] := clRed;
+      end;
+    end;
 end;
 
 procedure TForm1.imageMouseUp(Sender: TObject; Button: TMouseButton;
@@ -250,54 +310,9 @@ begin
   // Linhas Bresenham
   if (opt = 7) then
   begin
-    p2.X := X;
-    p2.Y := Y;
-
-    dx := Abs(p2.X - p1.X);
-    dy := Abs(p2.Y - p1.Y);
-
-    if (p1.X < p2.X) then sx := 1 else sx := -1;
-    if (p1.Y < p2.Y) then sy := 1 else sy := -1;
-
-    xp := p1.X;
-    yp := p1.Y;
-
-    image.Canvas.Pixels[Round(xp), Round(yp)] := clRed;
-
-    if (dx > dy) then
-    begin
-      // Caminha em X
-      d := 2 * dy - dx;
-      while (xp <> p2.X) do
-      begin
-        xp := xp + sx;
-        if (d < 0) then
-          d := d + 2 * dy
-        else
-        begin
-          d := d + 2 * (dy - dx);
-          yp := yp + sy;
-        end;
-        image.Canvas.Pixels[Round(xp), Round(yp)] := clRed;
-      end;
-    end
-    else
-    begin
-      // Caminha em Y
-      d := 2 * dx - dy;
-      while (yp <> p2.Y) do
-      begin
-        yp := yp + sy;
-        if (d < 0) then
-          d := d + 2 * dx
-        else
-        begin
-          d := d + 2 * (dx - dy);
-          xp := xp + sx;
-        end;
-        image.Canvas.Pixels[Round(xp), Round(yp)] := clRed;
-      end;
-    end;
+       p2.X := X;
+       p2.Y := Y;
+       lineBresenham(p1, p2);
   end;
 
 
@@ -401,6 +416,139 @@ procedure TForm1.DesenharPoligonoClick(Sender: TObject);
 begin
      opt := 10;
 end;
+
+procedure TForm1.MenuItem10Click(Sender: TObject);
+var
+  newLine: Line;
+begin
+  if hasPrevious and (Length(poly.edges) > 0) then
+  begin
+    // Close polygon: connect last point to the first point from edges
+    newLine.p1 := previousPoint;
+    newLine.p2 := poly.edges[0].p1;
+
+    lineBresenham(newLine.p1, newLine.p2);
+
+    // Insert closing edge
+    SetLength(poly.edges, Length(poly.edges) + 1);
+    poly.edges[High(poly.edges)] := newLine;
+
+    hasPrevious := False;
+  end;
+end;
+
+procedure TForm1.InvertPixel(x, y: Integer);
+var
+  c: TColor;
+begin
+  c := image.Canvas.Pixels[x, y];
+  if c = clBlack then
+    image.Canvas.Pixels[x, y] := clRed
+  else
+    image.Canvas.Pixels[x, y] := clBlack;
+end;
+
+
+procedure TForm1.MenuItem11Click(Sender: TObject);
+type
+  TEdge = record
+    ymax: Integer;
+    x: Double;
+    invSlope: Double;
+  end;
+var
+  y, i, j: Integer;
+  ymin, ymaxPoly: Integer;
+  AET: array of TEdge;       // Active Edge Table
+  newAET: array of TEdge;    // Temporário para atualização
+  tempEdge, polyEdge: TEdge;
+  e: Line;
+  n, m: Integer;
+begin
+  if Length(poly.edges) = 0 then Exit;
+
+  // 1) calcula ymin e ymax do polígono
+  ymin := poly.edges[0].p1.Y;
+  ymaxPoly := poly.edges[0].p1.Y;
+  for i := 0 to High(poly.edges) do
+  begin
+    e := poly.edges[i];
+    if e.p1.Y < ymin then ymin := e.p1.Y;
+    if e.p2.Y < ymin then ymin := e.p2.Y;
+    if e.p1.Y > ymaxPoly then ymaxPoly := e.p1.Y;
+    if e.p2.Y > ymaxPoly then ymaxPoly := e.p2.Y;
+  end;
+
+  // 2) inicializa Active Edge Table vazia
+  SetLength(AET, 0);
+
+  // 3) percorre cada scanline
+  for y := ymin to ymaxPoly do
+  begin
+    // Adiciona arestas que começam na linha y
+    for i := 0 to High(poly.edges) do
+    begin
+      e := poly.edges[i];
+
+      if e.p1.Y = e.p2.Y then Continue; // ignora horizontais
+
+      if (e.p1.Y = y) or (e.p2.Y = y) then
+      begin
+        if e.p1.Y < e.p2.Y then
+        begin
+          tempEdge.ymax := e.p2.Y;
+          tempEdge.x := e.p1.X;
+          tempEdge.invSlope := (e.p2.X - e.p1.X) / (e.p2.Y - e.p1.Y);
+        end
+        else
+        begin
+          tempEdge.ymax := e.p1.Y;
+          tempEdge.x := e.p2.X;
+          tempEdge.invSlope := (e.p1.X - e.p2.X) / (e.p1.Y - e.p2.Y);
+        end;
+
+        SetLength(AET, Length(AET)+1);
+        AET[High(AET)] := tempEdge;
+      end;
+    end;
+
+    // Remove arestas cujo ymax = y
+    n := 0;
+    SetLength(newAET, 0);
+    for i := 0 to High(AET) do
+      if AET[i].ymax > y then
+      begin
+        SetLength(newAET, n+1);
+        newAET[n] := AET[i];
+        Inc(n);
+      end;
+    AET := newAET;
+
+    // Ordena AET por x
+    for i := 0 to Length(AET)-2 do
+      for j := i+1 to Length(AET)-1 do
+        if AET[i].x > AET[j].x then
+        begin
+          tempEdge := AET[i];
+          AET[i] := AET[j];
+          AET[j] := tempEdge;
+        end;
+
+    // Preenche/inverte pixels entre pares de interseções
+    i := 0;
+    while i < Length(AET)-1 do
+    begin
+      for j := Round(AET[i].x) to Round(AET[i+1].x) do
+        InvertPixel(j, y);
+      Inc(i, 2);
+    end;
+
+    // Atualiza X das arestas na AET
+    for i := 0 to High(AET) do
+      AET[i].x := AET[i].x + AET[i].invSlope;
+  end;
+end;
+
 
 procedure TForm1.operacoesMenuClick(Sender: TObject);
 begin
