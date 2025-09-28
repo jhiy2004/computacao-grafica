@@ -29,6 +29,7 @@ type
     EixoLabel: TLabel;
     MenuItem12: TMenuItem;
     MenuItem13: TMenuItem;
+    MenuItem14: TMenuItem;
     ShRadioButton: TRadioButton;
     Sh10: TEdit;
     Sh11: TEdit;
@@ -95,6 +96,7 @@ type
     procedure LocalRadioButtonChange(Sender: TObject);
     procedure MenuItem12Click(Sender: TObject);
     procedure MenuItem13Click(Sender: TObject);
+    procedure MenuItem14Click(Sender: TObject);
     procedure RotCentroButtonChange(Sender: TObject);
     procedure RotOrigemButtonChange(Sender: TObject);
     procedure ShRadioButtonChange(Sender: TObject);
@@ -128,6 +130,13 @@ type
     procedure lineBresenham(p1, p2 : TPoint);
     procedure InvertPixel(x, y: Integer);
   end;
+const
+  INSIDE = 0;  // 0000
+  LEFT   = 1;  // 0001
+  RIGHT  = 2;  // 0010
+  BOTTOM = 4;  // 0100
+  TOP    = 8;  // 1000
+
 var
   Form1: TForm1;
   opt: integer;
@@ -138,7 +147,13 @@ var
   poly: Polygon;
   hasPrevious: Boolean = False;
   previousPoint: TPoint;
+  xmin: integer;
+  xmax: integer;
+  ymin: integer;
+  ymax: integer;
 
+function MinInt(a, b: Integer): Integer;
+function MaxInt(a, b: Integer): Integer;
 implementation
 
 {$R *.lfm}
@@ -1572,6 +1587,11 @@ begin
   LimparCanvas;
 end;
 
+procedure TForm1.MenuItem14Click(Sender: TObject);
+begin
+  opt := 13;
+end;
+
 procedure TForm1.RotCentroButtonChange(Sender: TObject);
 begin
   opt_projecao := 5;
@@ -1608,7 +1628,7 @@ begin
     image.Canvas.Pixels[X, Y] := clred;
   end;
 
-  if((opt = 2) or (opt = 3) or (opt = 4) or (opt = 5) or (opt = 6) or (opt = 7)) then
+  if((opt = 2) or (opt = 3) or (opt = 4) or (opt = 5) or (opt = 6) or (opt = 7) or (opt = 13) or (opt = 14)) then
   begin
     p1.X := X;
     p1.Y := Y;
@@ -1652,6 +1672,83 @@ begin
      begin
        image.Canvas.Pixels[X, Y] := clred;
      end;
+end;
+
+function ComputeOutCode(x, y, xmin, ymin, xmax, ymax: Integer): Integer;
+begin
+  Result := INSIDE;
+  if x < xmin then Result := Result or LEFT
+  else if x > xmax then Result := Result or RIGHT;
+  if y < ymin then Result := Result or BOTTOM
+  else if y > ymax then Result := Result or TOP;
+end;
+
+function CohenSutherlandClip(var x0, y0, x1, y1: Integer;
+                             xmin, ymin, xmax, ymax: Integer): Boolean;
+var
+  outcode0, outcode1, outcodeOut: Integer;
+  accept: Boolean;
+  x, y: Double;
+begin
+  outcode0 := ComputeOutCode(x0, y0, xmin, ymin, xmax, ymax);
+  outcode1 := ComputeOutCode(x1, y1, xmin, ymin, xmax, ymax);
+  accept := False;
+
+  while True do
+  begin
+    if (outcode0 or outcode1) = 0 then
+    begin
+      accept := True;
+      Break;
+    end
+    else if (outcode0 and outcode1) <> 0 then
+    begin
+      Break;
+    end
+    else
+    begin
+      if outcode0 <> 0 then
+        outcodeOut := outcode0
+      else
+        outcodeOut := outcode1;
+
+      if (outcodeOut and TOP) <> 0 then
+      begin
+        x := x0 + (x1 - x0) * (ymax - y0) / (y1 - y0);
+        y := ymax;
+      end
+      else if (outcodeOut and BOTTOM) <> 0 then
+      begin
+        x := x0 + (x1 - x0) * (ymin - y0) / (y1 - y0);
+        y := ymin;
+      end
+      else if (outcodeOut and RIGHT) <> 0 then
+      begin
+        y := y0 + (y1 - y0) * (xmax - x0) / (x1 - x0);
+        x := xmax;
+      end
+      else if (outcodeOut and LEFT) <> 0 then
+      begin
+        y := y0 + (y1 - y0) * (xmin - x0) / (x1 - x0);
+        x := xmin;
+      end;
+
+      if outcodeOut = outcode0 then
+      begin
+        x0 := Round(x);
+        y0 := Round(y);
+        outcode0 := ComputeOutCode(x0, y0, xmin, ymin, xmax, ymax);
+      end
+      else
+      begin
+        x1 := Round(x);
+        y1 := Round(y);
+        outcode1 := ComputeOutCode(x1, y1, xmin, ymin, xmax, ymax);
+      end;
+    end;
+  end;
+
+  Result := accept;
 end;
 
 procedure TForm1.lineBresenham(p1, p2: TPoint);
@@ -1710,7 +1807,7 @@ procedure TForm1.imageMouseUp(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 var
   raio, xp, yp, a, m, dx, dy, t, d, sx, sy: Double;
-  xi, yi, xn, i: Integer;
+  xi, yi, xn, i, n: Integer;
   cos1, sen1: Double;
 begin
   if (opt = 1) then
@@ -1874,6 +1971,58 @@ begin
       image.Canvas.Pixels[p1.X + xi, p1.Y - yi] := clRed;
     end;
   end;
+
+  if(opt = 13) then
+  begin
+    LimparCanvas;
+    p2.X := X;
+    p2.Y := Y;
+
+    xmin := MinInt(p1.X, p2.X);
+    xmax := MaxInt(p1.X, p2.X);
+    ymin := MinInt(p1.Y, p2.Y);
+    ymax := MaxInt(p1.Y, p2.Y);
+
+    // desenha retângulo
+    for n:= xmin to xmax do
+    begin
+      Image.Canvas.Pixels[n, ymin] := clRed;
+      Image.Canvas.Pixels[n, ymax] := clRed;
+    end;
+
+    for n:= ymin to ymax do
+    begin
+      Image.Canvas.Pixels[xmin, n] := clRed;
+      Image.Canvas.Pixels[xmax, n] := clRed;
+    end;
+
+    opt := 14;
+  end
+  else if(opt = 14) then
+  begin
+    p2.X := X;
+    p2.Y := Y;
+
+    // Aplica clipping
+    if CohenSutherlandClip(p1.X, p1.Y, p2.X, p2.Y, xmin, ymin, xmax, ymax) then
+      lineBresenham(p1, p2);  // só desenha se a linha (ou parte dela) estiver dentro
+  end;
+end;
+
+function MinInt(a, b: Integer): Integer;
+begin
+  if a < b then
+    Result := a
+  else
+    Result := b;
+end;
+
+function MaxInt(a, b: Integer): Integer;
+begin
+  if a > b then
+    Result := a
+  else
+    Result := b;
 end;
 
 procedure TForm1.DesenharCirculoClick(Sender: TObject);
