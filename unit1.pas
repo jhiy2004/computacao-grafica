@@ -17,6 +17,41 @@ TYPE
     edges : ARRAY OF Line;
   END;
 
+  Material = record
+    Kd: Double;  // Diffuse coefficient
+    Ks: Double;  // Specular coefficient
+    Color: TColor;
+  end;
+
+  Point3D = record
+    x, y, z: Double;
+  end;
+
+  Sphere = record
+    Center: Point3D;
+    Radius: Double;
+    Mat: Material;
+  end;
+
+  Plane = record
+    Origin: Point3D;
+    U, V: Point3D;
+    Mat: Material;
+  end;
+
+  Light = record
+    Pos: Point3D;
+    I: Point3D;
+  end;
+
+  AmbientLight = record
+    I: Point3D;
+    K: Point3D;
+  end;
+
+  TLightArray = array of Light;
+  TMatrix4x4 = array[0..3, 0..3] of Double;
+
 type
   TMatriz = array of array of Double;
 
@@ -30,6 +65,7 @@ type
     MenuItem12: TMenuItem;
     MenuItem13: TMenuItem;
     MenuItem14: TMenuItem;
+    MenuItem15: TMenuItem;
     ShRadioButton: TRadioButton;
     Sh10: TEdit;
     Sh11: TEdit;
@@ -92,11 +128,13 @@ type
     procedure CirculoGrausClick(Sender: TObject);
     procedure desenharMenuItemClick(Sender: TObject);
     procedure ExecutarButtonClick(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
     procedure GlobalRadioButtonChange(Sender: TObject);
     procedure LocalRadioButtonChange(Sender: TObject);
     procedure MenuItem12Click(Sender: TObject);
     procedure MenuItem13Click(Sender: TObject);
     procedure MenuItem14Click(Sender: TObject);
+    procedure MenuItem15Click(Sender: TObject);
     procedure RotCentroButtonChange(Sender: TObject);
     procedure RotOrigemButtonChange(Sender: TObject);
     procedure ShRadioButtonChange(Sender: TObject);
@@ -129,6 +167,23 @@ type
     procedure fillPolygon(p : Polygon);
     procedure lineBresenham(p1, p2 : TPoint);
     procedure InvertPixel(x, y: Integer);
+    function  TransformPoint(const P: Point3D; const M: TMatrix4x4): Point3D;
+    procedure ApplyTransformPlane(var P: Plane; const M: TMatrix4x4);
+    procedure ApplyTransformSphere(var S: Sphere; const M: TMatrix4x4);
+    function VectorSubtract(const A, B: Point3D): Point3D;
+    function VectorAdd(const A, B: Point3D): Point3D;
+    function VectorScale(const V: Point3D; S: Double): Point3D;
+    function VectorLength(const V: Point3D): Double;
+    function VectorNormalize(const V: Point3D): Point3D;
+    function Dot(const A, B: Point3D): Double;
+    function Reflect(const L, N: Point3D): Point3D;
+    function Cross(const A, B: Point3D): Point3D;
+    function IlluminationModel1(
+      const ambient: AmbientLight;
+      const lights: TLightArray;
+      const m: Material;
+      const angle: Double
+    ): TColor;
   end;
 const
   INSIDE = 0;  // 0000
@@ -1168,6 +1223,11 @@ begin
 
 end;
 
+procedure TForm1.FormCreate(Sender: TObject);
+begin
+
+end;
+
 procedure TForm1.ProjecaoOrtografica(const MC, MH: TMatriz; const canvasCenterX, CanvasCenterY: Integer);
 var a, b, c: Integer;
 var MResultado: TMatriz;
@@ -1590,6 +1650,67 @@ end;
 procedure TForm1.MenuItem14Click(Sender: TObject);
 begin
   opt := 13;
+end;
+
+procedure TForm1.MenuItem15Click(Sender: TObject);
+var
+  mySphere: Sphere;
+  myPlane: Plane;
+  lightSource: Light;
+  ALight: AmbientLight;
+  observer: Point3D;
+  size: Double;
+begin
+  // Initialize the sphere
+  mySphere.Center.x := 0;
+  mySphere.Center.y := 0;
+  mySphere.Center.z := 0;
+  mySphere.Radius := 50;
+
+  mySphere.Mat.Kd := 0.3;
+  mySphere.Mat.Ks := 0.8;
+  mySphere.Mat.Color := clYellow;
+
+  // Initialize the plane
+  size := 100;
+  myPlane.Origin.x := -size/2;
+  myPlane.Origin.y := -size/2;
+  myPlane.Origin.z := 0;
+
+  myPlane.U.x := size;
+  myPlane.U.y := 0;
+  myPlane.U.z := 0;
+
+  myPlane.V.x := 0;
+  myPlane.V.y := size;
+  myPlane.V.z := 0;
+
+  myPlane.Mat.Kd := 0.7;
+  myPlane.Mat.Ks := 0.7;
+  myPlane.Mat.Color := clRed;
+
+  // Observer
+  observer.x := 0;
+  observer.y := 0;
+  observer.z := 100;
+
+  // Light Source
+  lightSource.Pos.x := 100;
+  lightSource.Pos.y := 0;
+  lightSource.Pos.z := 100;
+
+  lightSource.I.x := 0.7;
+  lightSource.I.y := 0.7;
+  lightSource.I.z := 0.7;
+
+  //Ambient Light
+  ALight.I.x := 0.7;
+  ALight.I.y := 0.7;
+  ALight.I.z := 0.7;
+
+  ALight.K.x := 0.2;
+  ALight.K.y := 0.2;
+  ALight.K.z := 0.2;
 end;
 
 procedure TForm1.RotCentroButtonChange(Sender: TObject);
@@ -2256,5 +2377,149 @@ procedure TForm1.fillPolygon(p: Polygon);
 begin
 
 end;
+
+function TForm1.VectorSubtract(const A, B: Point3D): Point3D;
+begin
+  Result.x := A.x - B.x;
+  Result.y := A.y - B.y;
+  Result.z := A.z - B.z;
+end;
+
+function TForm1.VectorAdd(const A, B: Point3D): Point3D;
+begin
+  Result.x := A.x + B.x;
+  Result.y := A.y + B.y;
+  Result.z := A.z + B.z;
+end;
+
+function TForm1.VectorScale(const V: Point3D; S: Double): Point3D;
+begin
+  Result.x := V.x * S;
+  Result.y := V.y * S;
+  Result.z := V.z * S;
+end;
+
+function TForm1.VectorLength(const V: Point3D): Double;
+begin
+  Result := Sqrt(V.x*V.x + V.y*V.y + V.z*V.z);
+end;
+
+function TForm1.VectorNormalize(const V: Point3D): Point3D;
+var L: Double;
+begin
+  L := VectorLength(V);
+  if L = 0 then L := 1;
+  Result.x := V.x / L;
+  Result.y := V.y / L;
+  Result.z := V.z / L;
+end;
+
+function TForm1.Dot(const A, B: Point3D): Double;
+begin
+  Result := A.x*B.x + A.y*B.y + A.z*B.z;
+end;
+
+function TForm1.Reflect(const L, N: Point3D): Point3D;
+var dotLN: Double;
+begin
+  dotLN := 2 * Dot(N, L);
+  Result.x := dotLN*N.x - L.x;
+  Result.y := dotLN*N.y - L.y;
+  Result.z := dotLN*N.z - L.z;
+end;
+
+
+function TForm1.TransformPoint(const P: Point3D; const M: TMatrix4x4): Point3D;
+var
+  x, y, z, w: Double;
+begin
+  x := P.x * M[0,0] + P.y * M[0,1] + P.z * M[0,2] + M[0,3];
+  y := P.x * M[1,0] + P.y * M[1,1] + P.z * M[1,2] + M[1,3];
+  z := P.x * M[2,0] + P.y * M[2,1] + P.z * M[2,2] + M[2,3];
+  w := P.x * M[3,0] + P.y * M[3,1] + P.z * M[3,2] + M[3,3];
+
+  if w <> 0 then
+  begin
+    x := x / w;
+    y := y / w;
+    z := z / w;
+  end;
+
+  Result.x := x;
+  Result.y := y;
+  Result.z := z;
+end;
+
+procedure TForm1.ApplyTransformPlane(var P: Plane; const M: TMatrix4x4);
+begin
+  P.Origin := TransformPoint(P.Origin, M);
+  P.U := TransformPoint(P.U, M);
+  P.V := TransformPoint(P.V, M);
+end;
+
+procedure TForm1.ApplyTransformSphere(var S: Sphere; const M: TMatrix4x4);
+var
+  scaleX, scaleY, scaleZ: Double;
+  newCenter: Point3D;
+begin
+  S.Center := TransformPoint(S.Center, M);
+
+  scaleX := Sqrt(M[0,0]*M[0,0] + M[0,1]*M[0,1] + M[0,2]*M[0,2]);
+  scaleY := Sqrt(M[1,0]*M[1,0] + M[1,1]*M[1,1] + M[1,2]*M[1,2]);
+  scaleZ := Sqrt(M[2,0]*M[2,0] + M[2,1]*M[2,1] + M[2,2]*M[2,2]);
+
+  S.Radius := S.Radius * ((scaleX + scaleY + scaleZ) / 3);
+end;
+
+function TForm1.Cross(const A, B: Point3D): Point3D;
+begin
+  Result.x := A.y * B.z - A.z * B.y;
+  Result.y := A.z * B.x - A.x * B.z;
+  Result.z := A.x * B.y - A.y * B.x;
+end;
+
+function TForm1.IlluminationModel1(
+  const ambient: AmbientLight;
+  const lights: TLightArray;
+  const m: Material;
+  const angle: Double
+): TColor;
+var
+  ambientComponent, lightsComponent, finalComponent: Double;
+  i: Integer;
+  aux: Point3D;
+  r, g, b: Byte;
+begin
+  // Ambient contribution (sum of RGB components as a fraction)
+  ambientComponent := Dot(ambient.I, ambient.K);
+
+  // Initialize lights contribution
+  lightsComponent := 0;
+
+  aux.x := m.Kd;
+  aux.y := m.Kd;
+  aux.z := m.Kd;
+
+  for i := 0 to High(lights) do
+    lightsComponent := lightsComponent + Dot(lights[i].I, aux) * Cos(angle);
+
+  finalComponent := ambientComponent + lightsComponent;
+
+  // Clamp final component to [0..1]
+  if finalComponent > 1 then finalComponent := 1;
+
+  // Extract RGB from m.Color and scale by finalComponent
+  r := Round(Red(m.Color) * finalComponent);
+  g := Round(Green(m.Color) * finalComponent);
+  b := Round(Blue(m.Color) * finalComponent);
+
+  // Clamp RGB to [0..255]
+  if r > 255 then r := 255;
+  if g > 255 then g := 255;
+  if b > 255 then b := 255;
+
+  Result := RGBToColor(r, g, b);
+end;
+
 
 end.
