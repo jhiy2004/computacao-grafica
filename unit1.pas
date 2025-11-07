@@ -189,7 +189,7 @@ type
     ): TColor;
     procedure DrawPlane(const P: Plane; const ambient: AmbientLight; const lights: TLightArray; const M: TMatrix4x4);
     procedure DrawSphere(const S: Sphere; const ambient: AmbientLight; const lights: TLightArray; const M: TMatrix4x4);
-    procedure MakeView(var M: TMatrix4x4; EyeZ: Double);
+    procedure MakeView(var M: TMatrix4x4; Eye, Target, TempUp: Point3D);
     procedure MakeViewport(var M: TMatrix4x4; W, H: Integer);
     procedure MakeOrtho(var M: TMatrix4x4; l,r,b,t,n,f: Double);
     function MultiplyMatrix(const A, B: TMatrix4x4): TMatrix4x4;
@@ -1673,7 +1673,7 @@ var
   myPlane: Plane;
   lightSource: Light;
   ALight: AmbientLight;
-  observer: Point3D;
+  observer, target, tempUp: Point3D;
   size: Double;
   M1, M2, M3, M: TMatrix4x4;
   W, H: Integer;
@@ -1711,6 +1711,14 @@ begin
   observer.y := 0;
   observer.z := 100;
 
+  target.x := 0;
+  target.y := 0;
+  target.z := 0;
+
+  tempUp.x := 0;
+  tempUp.y := 1;
+  tempUp.z := 0;
+
   // Light Source
   lightSource.Pos.x := 100;
   lightSource.Pos.y := 0;
@@ -1733,10 +1741,12 @@ begin
   W := Image.Width;
   H := Image.Height;
 
-  M[0, 0] := 1;    M[0, 1] := 0;    M[0, 2] := 0;   M[0, 3] := 0;
-  M[1, 0] := 0;    M[1, 1] := 1;    M[1, 2] := 0;   M[1, 3] := 0;
-  M[2, 0] := 0;    M[2, 1] := 0;    M[2, 2] := 1;   M[2, 3] := 0;
-  M[3, 0] := W div 2;    M[3, 1] := H div 2;    M[3, 2] := 0;   M[3, 3] := 1;
+  MakeView(M1, observer, target, tempUp);
+  MakeOrtho(M2, -50, 50, -50, 50, 0, 1000);
+  MakeViewport(M3, W, H);
+
+  M := MultiplyMatrix(M1, M2);
+  M := MultiplyMatrix(M, M3);
 
   // Init ZBuffer
   InitFrame;
@@ -2575,7 +2585,7 @@ var
   c: TColor;
   x2D, y2D: Integer;
 begin
-  Resolution := 500;
+  Resolution := 1500;
 
   Normal := VectorNormalize(Cross(P.U, P.V));
 
@@ -2626,7 +2636,7 @@ var
   c: TColor;
   x2D, y2D: Integer;
 begin
-  Resolution := 500;
+  Resolution := 1500;
 
   for iu := 0 to Resolution do
   begin
@@ -2660,25 +2670,31 @@ begin
   end;
 end;
 
-procedure TForm1.MakeView(var M: TMatrix4x4; EyeZ: Double);
+procedure TForm1.MakeView(var M: TMatrix4x4; Eye, Target, TempUp: Point3D);
+var
+  U, V, N : Point3D;
 begin
-  M[0][0] := 1; M[0][1] := 0; M[0][2] := 0; M[0][3] := 0;
-  M[1][0] := 0; M[1][1] := 1; M[1][2] := 0; M[1][3] := 0;
-  M[2][0] := 0; M[2][1] := 0; M[2][2] := 1; M[2][3] := -EyeZ;
-  M[3][0] := 0; M[3][1] := 0; M[3][2] := 0; M[3][3] := 1;
+  N := VectorNormalize(VectorSubtract(Target, Eye));
+  V := VectorNormalize(Cross(N, TempUp));
+  U := VectorNormalize(Cross(N, V));
+
+  M[0][0] := V.x; M[0][1] := U.x; M[0][2] := N.x; M[0][3] := 0;
+  M[1][0] := V.y; M[1][1] := U.y; M[1][2] := N.y; M[1][3] := 0;
+  M[2][0] := V.z; M[2][1] := U.z; M[2][2] := N.z; M[2][3] := 0;
+  M[3][0] := -Dot(V, Eye); M[3][1] := -Dot(U, Eye); M[3][2] := -Dot(N, Eye); M[3][3] := 1;
 end;
 
 procedure TForm1.MakeViewport(var M: TMatrix4x4; W, H: Integer);
 var
   sx, sy: Double;
 begin
-  sx := W / 2;
-  sy := H / 2;
+  sx := W div 2;
+  sy := H div 2;
 
-  M[0][0] := sx;   M[0][1] := 0;    M[0][2] := 0;   M[0][3] := sx;
-  M[1][0] := 0;    M[1][1] := -sy;  M[1][2] := 0;   M[1][3] := sy;
-  M[2][0] := 0;    M[2][1] := 0;    M[2][2] := 1;   M[2][3] := 0;
-  M[3][0] := 0;    M[3][1] := 0;    M[3][2] := 0;   M[3][3] := 1;
+  M[0][0] := sx;    M[0][1] := 0;     M[0][2] := 0;   M[0][3] := 0;
+  M[1][0] := 0;     M[1][1] := -sy;   M[1][2] := 0;   M[1][3] := 0;
+  M[2][0] := 0;     M[2][1] := 0;     M[2][2] := 1;   M[2][3] := 0;
+  M[3][0] := sx;    M[3][1] := sy;    M[3][2] := 0;   M[3][3] := 1;
 end;
 
 procedure TForm1.MakeOrtho(var M: TMatrix4x4; l,r,b,t,n,f: Double);
@@ -2692,9 +2708,9 @@ begin
   M[1,1] := 2 / (t - b);
   M[2,2] := -2 / (f - n);
 
-  M[0,3] := -(r + l) / (r - l);
-  M[1,3] := -(t + b) / (t - b);
-  M[2,3] := -(f + n) / (f - n);
+  M[3,0] := -(r + l) / (r - l);
+  M[3,1] := -(t + b) / (t - b);
+  M[3,2] := -(f + n) / (f - n);
 end;
 
 function TForm1.MultiplyMatrix(const A, B: TMatrix4x4): TMatrix4x4;
