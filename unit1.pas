@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, ExtCtrls, Menus,
-  ExtDlgs, StdCtrls;
+  ExtDlgs, StdCtrls, Math;
 
 TYPE
   Line = RECORD
@@ -187,8 +187,28 @@ type
       const m: Material;
       const n, pos: Point3D
     ): TColor;
-    procedure DrawPlane(const P: Plane; const ambient: AmbientLight; const lights: TLightArray; const M: TMatrix4x4);
-    procedure DrawSphere(const S: Sphere; const ambient: AmbientLight; const lights: TLightArray; const M: TMatrix4x4);
+    function IlluminationModel2(
+      const ambient: AmbientLight;
+      const lights: TLightArray;
+      const m: Material;
+      const n, pos, obs: Point3D;
+      const K, NConst : Double
+    ): TColor;
+    procedure DrawPlane(
+      const P: Plane;
+      const ambient: AmbientLight;
+      const lights: TLightArray;
+      const M: TMatrix4x4;
+      const K, NConst: Double;
+      const obs : Point3D);
+    procedure DrawSphere(
+      const S: Sphere;
+      const ambient: AmbientLight;
+      const lights: TLightArray;
+      const M: TMatrix4x4;
+      const K, NConst: Double;
+      const obs: Point3D
+    );
     procedure MakeView(var M: TMatrix4x4; Eye, Target, TempUp: Point3D);
     procedure MakeViewport(var M: TMatrix4x4; W, H: Integer);
     procedure MakeOrtho(var M: TMatrix4x4; l,r,b,t,n,f: Double);
@@ -1752,8 +1772,8 @@ begin
   InitFrame;
 
   // Draw Objects
-  DrawPlane(myPlane, ALight, [lightSource], M);
-  DrawSphere(mySphere, ALight, [lightSource], M);
+  DrawPlane(myPlane, ALight, [lightSource], M, 1, 1, observer);
+  DrawSphere(mySphere, ALight, [lightSource], M, 1, 1, observer);
 
   // End
   EndFrame;
@@ -2550,6 +2570,7 @@ var
   i: Integer;
   aux: Point3D;
   r, g, b: Byte;
+  theta : Double;
 begin
   // Ambient contribution (sum of RGB components as a fraction)
   ambientComponent := Dot(ambient.I, ambient.K);
@@ -2562,7 +2583,13 @@ begin
   aux.z := m.Kd;
 
   for i := 0 to High(lights) do
-    lightsComponent := lightsComponent + Dot(lights[i].I, aux) * VectorCosAngle(n, VectorSubtract(pos, lights[i].Pos));
+  begin
+    theta := Max(VectorCosAngle(n, VectorSubtract(lights[i].Pos, pos)), 0);
+    lightsComponent := lightsComponent + Dot(lights[i].I, aux) * theta;
+  end;
+
+  //WriteLn('Ambient comp: ', ambientComponent:0:5);
+  //WriteLn('Light comp: ', lightsComponent:0:5);
 
   finalComponent := ambientComponent + lightsComponent;
 
@@ -2577,7 +2604,78 @@ begin
   Result := RGBToColor(r, g, b);
 end;
 
-procedure TForm1.DrawPlane(const P: Plane; const ambient: AmbientLight; const lights: TLightArray; const M: TMatrix4x4);
+function TForm1.IlluminationModel2(
+  const ambient: AmbientLight;
+  const lights: TLightArray;
+  const m: Material;
+  const n, pos, obs: Point3D;
+  const K, NConst : Double
+): TColor;
+var
+  ambientComponent, lightsComponent, finalComponent: Double;
+  i: Integer;
+  aux1, aux2, LVec, RVec, SVec: Point3D;
+  r, g, b: Byte;
+  theta, alpha : Double;
+begin
+  // Ambient contribution (sum of RGB components as a fraction)
+  ambientComponent := Dot(ambient.I, ambient.K);
+
+  // Initialize lights contribution
+  lightsComponent := 0;
+
+  for i := 0 to High(lights) do
+  begin
+
+    LVec := VectorSubtract(lights[i].Pos, pos);
+    SVec := VectorSubtract(obs, pos);
+    RVec := Reflect(LVec, n);
+
+    theta := Max(VectorCosAngle(VectorNormalize(n), VectorNormalize(LVec)), 0);
+    alpha := Max(Power(VectorCosAngle(VectorNormalize(RVec), VectorNormalize(SVec)), NConst), 0);
+
+    {
+    WriteLn('Valor de theta: ', theta:0:5);
+    WriteLn('Valor de alpha: ', alpha:0:5);
+    WriteLn('Vector LVec: x=', LVec.x:0:2, ' y=', LVec.y:0:2, ' z=', LVec.z:0:2);
+    WriteLn('Vector RVec: x=', RVec.x:0:2, ' y=', RVec.y:0:2, ' z=', RVec.z:0:2);
+    }
+
+    aux1.x := m.Kd * theta;
+    aux1.y := m.Kd * theta;
+    aux1.z := m.Kd * theta;
+
+    aux2.x := m.Ks * alpha;
+    aux2.y := m.Ks * alpha;
+    aux2.z := m.Ks * alpha;
+
+
+    lightsComponent := lightsComponent + Dot(lights[i].I, VectorAdd(aux1, aux2)) / (1 + K);
+  end;
+     {
+  WriteLn('Ambient comp: ', ambientComponent:0:5);
+  WriteLn('Light comp: ', lightsComponent:0:5);
+      }
+  finalComponent := ambientComponent + lightsComponent;
+
+  // Clamp final component to [0..1]
+  if finalComponent > 1 then finalComponent := 1;
+
+  // Extract RGB from m.Color and scale by finalComponent
+  r := Round(Red(m.Color) * finalComponent);
+  g := Round(Green(m.Color) * finalComponent);
+  b := Round(Blue(m.Color) * finalComponent);
+
+  Result := RGBToColor(r, g, b);
+end;
+
+procedure TForm1.DrawPlane(
+  const P: Plane;
+  const ambient: AmbientLight;
+  const lights: TLightArray;
+  const M: TMatrix4x4;
+  const K, NConst: Double;
+  const obs : Point3D);
 var
   Normal, pointPos: Point3D;
   s, t: Double;
@@ -2605,13 +2703,8 @@ begin
         )
       );
 
-      c := IlluminationModel1(
-            ambient,
-            lights,
-            P.Mat,
-            Normal,
-            pointPos
-          );
+      //c := IlluminationModel1(ambient, lights, P.Mat, Normal, pointPos);
+      c := IlluminationModel2(ambient, lights, P.mat, Normal, pointPos, obs, K, NConst);
 
       pointPos := TransformPoint(pointPos, M);
 
@@ -2627,7 +2720,9 @@ procedure TForm1.DrawSphere(
   const S: Sphere;
   const ambient: AmbientLight;
   const lights: TLightArray;
-  const M: TMatrix4x4
+  const M: TMatrix4x4;
+  const K, NConst: Double;
+  const obs: Point3D
 );
 var
   u, v: Double;
@@ -2652,13 +2747,8 @@ begin
 
       normal := VectorNormalize(VectorSubtract(pointPos, S.Center));
 
-      c := IlluminationModel1(
-            ambient,
-            lights,
-            S.Mat,
-            normal,
-            pointPos
-          );
+      //c := IlluminationModel1(ambient, lights, S.Mat, normal, pointPos);
+      c := IlluminationModel2(ambient, lights, S.mat, Normal, pointPos, obs, K, NConst);
 
       pointPos := TransformPoint(pointPos, M);
 
@@ -2675,8 +2765,8 @@ var
   U, V, N : Point3D;
 begin
   N := VectorNormalize(VectorSubtract(Target, Eye));
-  V := VectorNormalize(Cross(N, TempUp));
-  U := VectorNormalize(Cross(N, V));
+  V := VectorNormalize(Cross(TempUp, N));
+  U := VectorNormalize(Cross(V, N));
 
   M[0][0] := V.x; M[0][1] := U.x; M[0][2] := N.x; M[0][3] := 0;
   M[1][0] := V.y; M[1][1] := U.y; M[1][2] := N.y; M[1][3] := 0;
