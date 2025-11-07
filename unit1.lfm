@@ -4,10 +4,11 @@ object Form1: TForm1
   Top = 32
   Width = 958
   Caption = 'Form1'
-  ClientHeight = 534
-  ClientWidth = 958
+  ClientHeight = 216
+  ClientWidth = 320
   Menu = mainMenu
   ParentBiDiMode = False
+  LCLVersion = '4.2.0.0'
   OnCreate = FormCreate
   object image: TImage
     Left = 16
