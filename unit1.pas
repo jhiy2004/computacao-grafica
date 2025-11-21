@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, ExtCtrls, Menus,
-  ExtDlgs, StdCtrls;
+  ExtDlgs, StdCtrls, Math;
 
 TYPE
   Line = RECORD
@@ -17,19 +17,70 @@ TYPE
     edges : ARRAY OF Line;
   END;
 
+  Material = record
+    Kd: Double;  // Diffuse coefficient
+    Ks: Double;  // Specular coefficient
+    Color: TColor;
+  end;
+
+  Point3D = record
+    x, y, z: Double;
+  end;
+
+  Sphere = record
+    Center: Point3D;
+    Radius: Double;
+    Mat: Material;
+  end;
+
+  Plane = record
+    Origin: Point3D;
+    U, V: Point3D;
+    Mat: Material;
+  end;
+
+  Light = record
+    Pos: Point3D;
+    I: Point3D;
+  end;
+
+  AmbientLight = record
+    I: Point3D;
+    K: Point3D;
+  end;
+
+  TLightArray = array of Light;
+  TMatrix4x4 = array[0..3, 0..3] of Double;
+  TZBuffer   = array of array of Double;
+  TColorBuffer = array of array of TColor;
+
 type
   TMatriz = array of array of Double;
 
   { TForm1 }
 
   TForm1 = class(TForm)
+    KEdit: TEdit;
+    MenuItem17: TMenuItem;
+    NEdit: TEdit;
+    EixoEdit1: TEdit;
+    EixoLabel1: TLabel;
+    EixoLabel2: TLabel;
     ExecutarButton: TButton;
     GrausLabel: TLabel;
     GrausEdit: TEdit;
     EixoLabel: TLabel;
+    Label1: TLabel;
+    Label2: TLabel;
     MenuItem12: TMenuItem;
     MenuItem13: TMenuItem;
     MenuItem14: TMenuItem;
+    MenuItem15: TMenuItem;
+    MenuItem16: TMenuItem;
+    RadioButton1: TRadioButton;
+    RadioButton2: TRadioButton;
+    RotLabel1: TLabel;
+    RotLabel2: TLabel;
     ShRadioButton: TRadioButton;
     Sh10: TEdit;
     Sh11: TEdit;
@@ -91,13 +142,21 @@ type
     procedure abrirArquivoClick(Sender: TObject);
     procedure CirculoGrausClick(Sender: TObject);
     procedure desenharMenuItemClick(Sender: TObject);
+    procedure EixoLabel1Click(Sender: TObject);
     procedure ExecutarButtonClick(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
     procedure GlobalRadioButtonChange(Sender: TObject);
     procedure LocalRadioButtonChange(Sender: TObject);
     procedure MenuItem12Click(Sender: TObject);
     procedure MenuItem13Click(Sender: TObject);
     procedure MenuItem14Click(Sender: TObject);
+    procedure MenuItem15Click(Sender: TObject);
+    procedure MenuItem16Click(Sender: TObject);
+    procedure MenuItem17Click(Sender: TObject);
+    procedure RadioButton1Change(Sender: TObject);
+    procedure RadioButton2Change(Sender: TObject);
     procedure RotCentroButtonChange(Sender: TObject);
+    procedure RotLabel2Click(Sender: TObject);
     procedure RotOrigemButtonChange(Sender: TObject);
     procedure ShRadioButtonChange(Sender: TObject);
     procedure TransRadioButtonChange(Sender: TObject);
@@ -129,6 +188,65 @@ type
     procedure fillPolygon(p : Polygon);
     procedure lineBresenham(p1, p2 : TPoint);
     procedure InvertPixel(x, y: Integer);
+    function  TransformPoint(const P: Point3D; const M: TMatrix4x4): Point3D;
+    procedure ApplyTransformPlane(var P: Plane; const M: TMatrix4x4);
+    procedure ApplyTransformSphere(var S: Sphere; const M: TMatrix4x4);
+    function VectorSubtract(const A, B: Point3D): Point3D;
+    function VectorAdd(const A, B: Point3D): Point3D;
+    function VectorScale(const V: Point3D; S: Double): Point3D;
+    function VectorLength(const V: Point3D): Double;
+    function VectorNormalize(const V: Point3D): Point3D;
+    function Dot(const A, B: Point3D): Double;
+    function Reflect(const L, N: Point3D): Point3D;
+    function Cross(const A, B: Point3D): Point3D;
+    function VectorCosAngle(const A, B: Point3D): Double;
+    function IlluminationModel1(
+      const ambient: AmbientLight;
+      const lights: TLightArray;
+      const m: Material;
+      const n, pos: Point3D
+    ): TColor;
+    function IlluminationModel2(
+      const ambient: AmbientLight;
+      const lights: TLightArray;
+      const m: Material;
+      const n, pos, obs: Point3D;
+      const K, NConst : Double
+    ): TColor;
+    procedure DrawPlane(
+      const P: Plane;
+      const ambient: AmbientLight;
+      const lights: TLightArray;
+      const M: TMatrix4x4;
+      const K, NConst: Double;
+      const obs : Point3D);
+    procedure DrawSphere(
+      const S: Sphere;
+      const ambient: AmbientLight;
+      const lights: TLightArray;
+      const M: TMatrix4x4;
+      const K, NConst: Double;
+      const obs: Point3D
+    );
+    procedure MakeView(var M: TMatrix4x4; Eye, Target, TempUp: Point3D);
+    procedure MakeViewport(var M: TMatrix4x4; W, H: Integer);
+    procedure MakeOrtho(var M: TMatrix4x4; l,r,b,t,n,f: Double);
+    function MultiplyMatrix(const A, B: TMatrix4x4): TMatrix4x4;
+    procedure PutPixelZ(x, y: Integer; z: Double; c: TColor);
+
+    procedure InitFrame;
+    procedure EndFrame;
+
+    function IdentityMatrix4x4: TMatrix4x4;
+    procedure ZBufferAula17(RotateMatrix : TMatrix4x4);
+    procedure PlanosZBuffer(RotateMatrix : TMatrix4x4);
+
+    function RotationMatrixX(a: Double): TMatrix4x4;
+    function RotationMatrixY(a: Double): TMatrix4x4;
+    function RotationMatrixZ(a: Double): TMatrix4x4;
+
+    procedure Iluminacoes(KConst, NConst : Integer);
+
   end;
 const
   INSIDE = 0;  // 0000
@@ -141,6 +259,7 @@ var
   Form1: TForm1;
   opt: integer;
   opt_projecao: integer;
+  opt_iluminacao: integer = 1;
   desenhar: boolean;
   p1: TPoint;
   p2: TPoint;
@@ -151,6 +270,10 @@ var
   xmax: integer;
   ymin: integer;
   ymax: integer;
+  ZBuffer: TZBuffer;
+  ColorBuffer: TColorBuffer;
+  K_Ui: integer;
+  N_Ui: integer;
 
 function MinInt(a, b: Integer): Integer;
 function MaxInt(a, b: Integer): Integer;
@@ -178,6 +301,11 @@ begin
   opt := 1;
 end;
 
+procedure TForm1.EixoLabel1Click(Sender: TObject);
+begin
+
+end;
+
 procedure TForm1.MultiplicarMatrizes(const Matriz1, Matriz2: TMatriz; var MResultado: TMatriz);
 var b, c : Integer;
 begin
@@ -197,6 +325,7 @@ var
   MC, MH, MHO, MHTPos, MHTNeg, MResultado, MResultadoO, MResultadoT : array of array of Double;
   canvasCenterX, canvasCenterY : Integer;
   aa, bb, cc, dd, ee, ff, gg, hh, ii, jj, kk, ll, mm, nn, oo, pp : Double;
+  RotateMatrix : TMatrix4x4;
 begin
   // Escala Local
   if (opt_projecao = 1) and (opt = 11) then
@@ -1166,6 +1295,68 @@ begin
     ProjecaoOrtografica(MC, MH, canvasCenterX, canvasCenterY);
   end;
 
+  if (opt_projecao = 4) and (opt = 15) then
+  begin
+    aa := StrToFloat(GrausEdit.Text);
+    aa := StrToFloat(GrausEdit.Text) * Pi / 180;
+
+    if (EixoEdit.Text = 'X') or (EixoEdit.Text = 'x') then
+      begin
+        RotateMatrix := RotationMatrixX(aa);
+      end;
+
+      if (EixoEdit.Text = 'Y') or (EixoEdit.Text = 'y') then
+      begin
+        RotateMatrix := RotationMatrixY(aa);
+      end;
+
+      if (EixoEdit.Text = 'Z') or (EixoEdit.Text = 'z') then
+      begin
+        RotateMatrix := RotationMatrixZ(aa);
+      end;
+
+      LimparCanvas;
+      ZBufferAula17(RotateMatrix);
+  end;
+
+  if (opt = 16) then
+  begin
+    LimparCanvas;
+
+    K_Ui := StrToInt(KEdit.Text);
+    N_Ui := StrToInt(NEdit.Text);
+
+    Iluminacoes(K_Ui, N_Ui);
+  end;
+
+  if (opt_projecao = 4) and (opt = 17) then
+  begin
+    aa := StrToFloat(GrausEdit.Text);
+    aa := StrToFloat(GrausEdit.Text) * Pi / 180;
+
+    if (EixoEdit.Text = 'X') or (EixoEdit.Text = 'x') then
+      begin
+        RotateMatrix := RotationMatrixX(aa);
+      end;
+
+      if (EixoEdit.Text = 'Y') or (EixoEdit.Text = 'y') then
+      begin
+        RotateMatrix := RotationMatrixY(aa);
+      end;
+
+      if (EixoEdit.Text = 'Z') or (EixoEdit.Text = 'z') then
+      begin
+        RotateMatrix := RotationMatrixZ(aa);
+      end;
+
+      LimparCanvas;
+      PlanosZBuffer(RotateMatrix);
+  end;
+end;
+
+procedure TForm1.FormCreate(Sender: TObject);
+begin
+
 end;
 
 procedure TForm1.ProjecaoOrtografica(const MC, MH: TMatriz; const canvasCenterX, CanvasCenterY: Integer);
@@ -1592,9 +1783,157 @@ begin
   opt := 13;
 end;
 
+procedure TForm1.MenuItem15Click(Sender: TObject);
+var
+  mySphere: Sphere;
+  myPlane: Plane;
+  lightSource: Light;
+  ALight: AmbientLight;
+  observer, target, tempUp: Point3D;
+  size: Double;
+  M1, M2, M3, M: TMatrix4x4;
+  W, H: Integer;
+begin
+  K_Ui := StrToInt(KEdit.Text);
+  N_Ui := StrToInt(NEdit.Text);
+
+  Iluminacoes(K_Ui, N_Ui);
+
+  opt := 16;
+end;
+
+procedure TForm1.Iluminacoes(KConst, NConst : Integer);
+var
+  mySphere: Sphere;
+  myPlane: Plane;
+  lightSource: Light;
+  ALight: AmbientLight;
+  observer, target, tempUp: Point3D;
+  size: Double;
+  M1, M2, M3, M: TMatrix4x4;
+  W, H: Integer;
+begin
+  // Initialize the sphere
+  mySphere.Center.x := 0;
+  mySphere.Center.y := 0;
+  mySphere.Center.z := 0;
+  mySphere.Radius := 50;
+
+  mySphere.Mat.Kd := 0.3;
+  mySphere.Mat.Ks := 0.8;
+  mySphere.Mat.Color := clYellow;
+
+  // Initialize the plane
+  size := 100;
+  myPlane.Origin.x := -size/2;
+  myPlane.Origin.y := -size/2;
+  myPlane.Origin.z := 0;
+
+  myPlane.U.x := size;
+  myPlane.U.y := 0;
+  myPlane.U.z := 0;
+
+  myPlane.V.x := 0;
+  myPlane.V.y := size;
+  myPlane.V.z := 0;
+
+  myPlane.Mat.Kd := 0.7;
+  myPlane.Mat.Ks := 0.7;
+  myPlane.Mat.Color := clRed;
+
+  // Observer
+  observer.x := 0;
+  observer.y := 0;
+  observer.z := 100;
+
+  target.x := 0;
+  target.y := 0;
+  target.z := 0;
+
+  tempUp.x := 0;
+  tempUp.y := 1;
+  tempUp.z := 0;
+
+  // Light Source
+  lightSource.Pos.x := 100;
+  lightSource.Pos.y := 0;
+  lightSource.Pos.z := 100;
+
+  lightSource.I.x := 0.7;
+  lightSource.I.y := 0.7;
+  lightSource.I.z := 0.7;
+
+  //Ambient Light
+  ALight.I.x := 0.7;
+  ALight.I.y := 0.7;
+  ALight.I.z := 0.7;
+
+  ALight.K.x := 0.2;
+  ALight.K.y := 0.2;
+  ALight.K.z := 0.2;
+
+  // Transformation Matrix
+  W := Image.Width;
+  H := Image.Height;
+
+  MakeView(M1, observer, target, tempUp);
+  MakeOrtho(M2, -50, 50, -50, 50, 0, 1000);
+  MakeViewport(M3, W, H);
+
+  M := MultiplyMatrix(M1, M2);
+  M := MultiplyMatrix(M, M3);
+
+  // Init ZBuffer
+  InitFrame;
+
+  // Draw Objects
+  DrawPlane(myPlane, ALight, [lightSource], M, KConst, NConst, observer);
+  DrawSphere(mySphere, ALight, [lightSource], M, KConst, NConst, observer);
+
+  // End
+  EndFrame;
+end;
+
+procedure TForm1.MenuItem16Click(Sender: TObject);
+var
+  RotateMatrix: TMatrix4x4;
+begin
+  RotateMatrix := IdentityMatrix4x4;
+
+  ZBufferAula17(RotateMatrix);
+
+  opt := 15;
+end;
+
+procedure TForm1.MenuItem17Click(Sender: TObject);
+var
+  RotateMatrix: TMatrix4x4;
+begin
+  RotateMatrix := IdentityMatrix4x4;
+
+  PlanosZBuffer(RotateMatrix);
+
+  opt := 17;
+end;
+
+procedure TForm1.RadioButton1Change(Sender: TObject);
+begin
+  opt_iluminacao := 1;
+end;
+
+procedure TForm1.RadioButton2Change(Sender: TObject);
+begin
+  opt_iluminacao := 2;
+end;
+
 procedure TForm1.RotCentroButtonChange(Sender: TObject);
 begin
   opt_projecao := 5;
+end;
+
+procedure TForm1.RotLabel2Click(Sender: TObject);
+begin
+
 end;
 
 procedure TForm1.RotOrigemButtonChange(Sender: TObject);
@@ -2255,6 +2594,1054 @@ end;
 procedure TForm1.fillPolygon(p: Polygon);
 begin
 
+end;
+
+function TForm1.VectorSubtract(const A, B: Point3D): Point3D;
+begin
+  Result.x := A.x - B.x;
+  Result.y := A.y - B.y;
+  Result.z := A.z - B.z;
+end;
+
+function TForm1.VectorAdd(const A, B: Point3D): Point3D;
+begin
+  Result.x := A.x + B.x;
+  Result.y := A.y + B.y;
+  Result.z := A.z + B.z;
+end;
+
+function TForm1.VectorScale(const V: Point3D; S: Double): Point3D;
+begin
+  Result.x := V.x * S;
+  Result.y := V.y * S;
+  Result.z := V.z * S;
+end;
+
+function TForm1.VectorLength(const V: Point3D): Double;
+begin
+  Result := Sqrt(V.x*V.x + V.y*V.y + V.z*V.z);
+end;
+
+function TForm1.VectorNormalize(const V: Point3D): Point3D;
+var L: Double;
+begin
+  L := VectorLength(V);
+  if L = 0 then L := 1;
+  Result.x := V.x / L;
+  Result.y := V.y / L;
+  Result.z := V.z / L;
+end;
+
+function TForm1.Dot(const A, B: Point3D): Double;
+begin
+  Result := A.x*B.x + A.y*B.y + A.z*B.z;
+end;
+
+function TForm1.Reflect(const L, N: Point3D): Point3D;
+var dotLN: Double;
+begin
+  dotLN := 2 * Dot(N, L);
+  Result.x := dotLN*N.x - L.x;
+  Result.y := dotLN*N.y - L.y;
+  Result.z := dotLN*N.z - L.z;
+end;
+
+function TForm1.VectorCosAngle(const A, B: Point3D): Double;
+var
+  dotAB, lenA, lenB: Double;
+begin
+  dotAB := Dot(A, B);
+  lenA  := VectorLength(A);
+  lenB  := VectorLength(B);
+
+  if (lenA = 0) or (lenB = 0) then
+    Exit(0);
+
+  Result := dotAB / (lenA * lenB);
+end;
+
+function TForm1.TransformPoint(const P: Point3D; const M: TMatrix4x4): Point3D;
+var
+  x, y, z, w: Double;
+begin
+  // Vetor linha: [x y z 1] * M
+
+  x := P.x * M[0,0] + P.y * M[1,0] + P.z * M[2,0] + 1 * M[3,0];
+  y := P.x * M[0,1] + P.y * M[1,1] + P.z * M[2,1] + 1 * M[3,1];
+  z := P.x * M[0,2] + P.y * M[1,2] + P.z * M[2,2] + 1 * M[3,2];
+  w := P.x * M[0,3] + P.y * M[1,3] + P.z * M[2,3] + 1 * M[3,3];
+
+  if w <> 0 then
+  begin
+    x := x / w;
+    y := y / w;
+    z := z / w;
+  end;
+
+  Result.x := x;
+  Result.y := y;
+  Result.z := z;
+end;
+
+procedure TForm1.ApplyTransformPlane(var P: Plane; const M: TMatrix4x4);
+begin
+  P.Origin := TransformPoint(P.Origin, M);
+  P.U := TransformPoint(P.U, M);
+  P.V := TransformPoint(P.V, M);
+end;
+
+procedure TForm1.ApplyTransformSphere(var S: Sphere; const M: TMatrix4x4);
+var
+  scaleX, scaleY, scaleZ: Double;
+  newCenter: Point3D;
+begin
+  S.Center := TransformPoint(S.Center, M);
+
+  scaleX := Sqrt(M[0,0]*M[0,0] + M[0,1]*M[0,1] + M[0,2]*M[0,2]);
+  scaleY := Sqrt(M[1,0]*M[1,0] + M[1,1]*M[1,1] + M[1,2]*M[1,2]);
+  scaleZ := Sqrt(M[2,0]*M[2,0] + M[2,1]*M[2,1] + M[2,2]*M[2,2]);
+
+  S.Radius := S.Radius * ((scaleX + scaleY + scaleZ) / 3);
+end;
+
+function TForm1.Cross(const A, B: Point3D): Point3D;
+begin
+  Result.x := A.y * B.z - A.z * B.y;
+  Result.y := A.z * B.x - A.x * B.z;
+  Result.z := A.x * B.y - A.y * B.x;
+end;
+
+function TForm1.IlluminationModel1(
+  const ambient: AmbientLight;
+  const lights: TLightArray;
+  const m: Material;
+  const n, pos: Point3D
+): TColor;
+var
+  ambientComponent, lightsComponent, finalComponent: Double;
+  i: Integer;
+  aux: Point3D;
+  r, g, b: Byte;
+  theta : Double;
+begin
+  // Ambient contribution (sum of RGB components as a fraction)
+  ambientComponent := Dot(ambient.I, ambient.K);
+
+  // Initialize lights contribution
+  lightsComponent := 0;
+
+  aux.x := m.Kd;
+  aux.y := m.Kd;
+  aux.z := m.Kd;
+
+  for i := 0 to High(lights) do
+  begin
+    theta := Max(VectorCosAngle(n, VectorSubtract(lights[i].Pos, pos)), 0);
+    lightsComponent := lightsComponent + Dot(lights[i].I, aux) * theta;
+  end;
+
+  //WriteLn('Ambient comp: ', ambientComponent:0:5);
+  //WriteLn('Light comp: ', lightsComponent:0:5);
+
+  finalComponent := ambientComponent + lightsComponent;
+
+  // Clamp final component to [0..1]
+  if finalComponent > 1 then finalComponent := 1;
+
+  // Extract RGB from m.Color and scale by finalComponent
+  r := Round(Red(m.Color) * finalComponent);
+  g := Round(Green(m.Color) * finalComponent);
+  b := Round(Blue(m.Color) * finalComponent);
+
+  Result := RGBToColor(r, g, b);
+end;
+
+function TForm1.IlluminationModel2(
+  const ambient: AmbientLight;
+  const lights: TLightArray;
+  const m: Material;
+  const n, pos, obs: Point3D;
+  const K, NConst : Double
+): TColor;
+var
+  ambientComponent, lightsComponent, finalComponent: Double;
+  i: Integer;
+  aux1, aux2, LVec, RVec, SVec: Point3D;
+  r, g, b: Byte;
+  theta, alpha : Double;
+begin
+  // Ambient contribution (sum of RGB components as a fraction)
+  ambientComponent := Dot(ambient.I, ambient.K);
+
+  // Initialize lights contribution
+  lightsComponent := 0;
+
+  for i := 0 to High(lights) do
+  begin
+
+    LVec := VectorSubtract(lights[i].Pos, pos);
+    SVec := VectorSubtract(obs, pos);
+    RVec := Reflect(LVec, n);
+
+    theta := Max(VectorCosAngle(VectorNormalize(n), VectorNormalize(LVec)), 0);
+    alpha := Max(Power(VectorCosAngle(VectorNormalize(RVec), VectorNormalize(SVec)), NConst), 0);
+
+    {
+    WriteLn('Valor de theta: ', theta:0:5);
+    WriteLn('Valor de alpha: ', alpha:0:5);
+    WriteLn('Vector LVec: x=', LVec.x:0:2, ' y=', LVec.y:0:2, ' z=', LVec.z:0:2);
+    WriteLn('Vector RVec: x=', RVec.x:0:2, ' y=', RVec.y:0:2, ' z=', RVec.z:0:2);
+    }
+
+    aux1.x := m.Kd * theta;
+    aux1.y := m.Kd * theta;
+    aux1.z := m.Kd * theta;
+
+    aux2.x := m.Ks * alpha;
+    aux2.y := m.Ks * alpha;
+    aux2.z := m.Ks * alpha;
+
+
+    lightsComponent := lightsComponent + Dot(lights[i].I, VectorAdd(aux1, aux2)) / (1 + K);
+  end;
+     {
+  WriteLn('Ambient comp: ', ambientComponent:0:5);
+  WriteLn('Light comp: ', lightsComponent:0:5);
+      }
+  finalComponent := ambientComponent + lightsComponent;
+
+  // Clamp final component to [0..1]
+  if finalComponent > 1 then finalComponent := 1;
+
+  // Extract RGB from m.Color and scale by finalComponent
+  r := Round(Red(m.Color) * finalComponent);
+  g := Round(Green(m.Color) * finalComponent);
+  b := Round(Blue(m.Color) * finalComponent);
+
+  Result := RGBToColor(r, g, b);
+end;
+
+procedure TForm1.DrawPlane(
+  const P: Plane;
+  const ambient: AmbientLight;
+  const lights: TLightArray;
+  const M: TMatrix4x4;
+  const K, NConst: Double;
+  const obs : Point3D);
+var
+  Normal, pointPos: Point3D;
+  s, t: Double;
+  i, j, Resolution: Integer;
+  c: TColor;
+  x2D, y2D: Integer;
+begin
+  Resolution := 1500;
+
+  Normal := VectorNormalize(Cross(P.U, P.V));
+
+  for i := 0 to Resolution do
+  begin
+    s := i / Resolution;
+
+    for j := 0 to Resolution do
+    begin
+      t := j / Resolution;
+
+      pointPos := VectorAdd(
+        P.Origin,
+        VectorAdd(
+          VectorScale(P.U, s),
+          VectorScale(P.V, t)
+        )
+      );
+
+      if (opt_iluminacao = 1) then
+      begin
+        c := IlluminationModel1(ambient, lights, P.Mat, Normal, pointPos);
+      end;
+
+      if (opt_iluminacao = 2) then
+      begin
+        c := IlluminationModel2(ambient, lights, P.mat, Normal, pointPos, obs, K, NConst);
+      end;
+
+      pointPos := TransformPoint(pointPos, M);
+
+      x2D := Round(pointPos.x);
+      y2D := Round(pointPos.y);
+
+      PutPixelZ(x2D, y2D, pointPos.z, c);
+    end;
+  end;
+end;
+
+procedure TForm1.DrawSphere(
+  const S: Sphere;
+  const ambient: AmbientLight;
+  const lights: TLightArray;
+  const M: TMatrix4x4;
+  const K, NConst: Double;
+  const obs: Point3D
+);
+var
+  u, v: Double;
+  iu, iv, Resolution: Integer;
+  pointPos, normal: Point3D;
+  c: TColor;
+  x2D, y2D: Integer;
+begin
+  Resolution := 1500;
+
+  for iu := 0 to Resolution do
+  begin
+    u := iu / Resolution * 2 * PI;
+
+    for iv := 0 to Resolution do
+    begin
+      v := (iv / Resolution) * PI - (PI / 2);
+
+      pointPos.x := S.Center.x + S.Radius * Cos(v) * Cos(u);
+      pointPos.y := S.Center.y + S.Radius * Cos(v) * Sin(u);
+      pointPos.z := S.Center.z + S.Radius * Sin(v);
+
+      normal := VectorNormalize(VectorSubtract(pointPos, S.Center));
+
+      if (opt_iluminacao = 1) then
+      begin
+        c := IlluminationModel1(ambient, lights, S.Mat, Normal, pointPos);
+      end;
+
+      if (opt_iluminacao = 2) then
+      begin
+        c := IlluminationModel2(ambient, lights, S.mat, Normal, pointPos, obs, K, NConst);
+      end;
+
+      pointPos := TransformPoint(pointPos, M);
+
+      x2D := Round(pointPos.x);
+      y2D := Round(pointPos.y);
+
+      PutPixelZ(x2D, y2D, pointPos.z, c);
+    end;
+  end;
+end;
+
+procedure TForm1.MakeView(var M: TMatrix4x4; Eye, Target, TempUp: Point3D);
+var
+  U, V, N : Point3D;
+begin
+  N := VectorNormalize(VectorSubtract(Target, Eye));
+  V := VectorNormalize(Cross(TempUp, N));
+  U := VectorNormalize(Cross(V, N));
+
+  M[0][0] := V.x; M[0][1] := U.x; M[0][2] := N.x; M[0][3] := 0;
+  M[1][0] := V.y; M[1][1] := U.y; M[1][2] := N.y; M[1][3] := 0;
+  M[2][0] := V.z; M[2][1] := U.z; M[2][2] := N.z; M[2][3] := 0;
+  M[3][0] := -Dot(V, Eye); M[3][1] := -Dot(U, Eye); M[3][2] := -Dot(N, Eye); M[3][3] := 1;
+end;
+
+procedure TForm1.MakeViewport(var M: TMatrix4x4; W, H: Integer);
+var
+  sx, sy: Double;
+begin
+  sx := W div 2;
+  sy := H div 2;
+
+  M[0][0] := sx;    M[0][1] := 0;     M[0][2] := 0;   M[0][3] := 0;
+  M[1][0] := 0;     M[1][1] := -sy;   M[1][2] := 0;   M[1][3] := 0;
+  M[2][0] := 0;     M[2][1] := 0;     M[2][2] := 1;   M[2][3] := 0;
+  M[3][0] := sx;    M[3][1] := sy;    M[3][2] := 0;   M[3][3] := 1;
+end;
+
+procedure TForm1.MakeOrtho(var M: TMatrix4x4; l,r,b,t,n,f: Double);
+begin
+  M[0][0] := 1;    M[0][1] := 0;    M[0][2] := 0;   M[0][3] := 0;
+  M[1][0] := 0;    M[1][1] := 1;    M[1][2] := 0;   M[1][3] := 0;
+  M[2][0] := 0;    M[2][1] := 0;    M[2][2] := 1;   M[2][3] := 0;
+  M[3][0] := 0;    M[3][1] := 0;    M[3][2] := 0;   M[3][3] := 1;
+
+  M[0,0] := 2 / (r - l);
+  M[1,1] := 2 / (t - b);
+  M[2,2] := 2 / (f - n);
+
+  M[3,0] := -(r + l) / (r - l);
+  M[3,1] := -(t + b) / (t - b);
+  M[3,2] := -(f + n) / (f - n);
+end;
+
+function TForm1.MultiplyMatrix(const A, B: TMatrix4x4): TMatrix4x4;
+var i, j, k: Integer;
+begin
+  for i := 0 to 3 do
+    for j := 0 to 3 do
+    begin
+      Result[i][j] := 0;
+      for k := 0 to 3 do
+        Result[i][j] := Result[i][j] + A[i][k] * B[k][j];
+    end;
+end;
+
+procedure TForm1.PutPixelZ(x, y: Integer; z: Double; c: TColor);
+var
+  W, H: Integer;
+begin
+  W := Image.Width;
+  H := Image.Height;
+  if (x < 0) or (x >= W) or (y < 0) or (y >= H) then
+    Exit;
+
+  if z < ZBuffer[x][y] then
+  begin
+    ZBuffer[x][y] := z;
+    ColorBuffer[x][y] := c;
+  end;
+end;
+
+procedure TForm1.EndFrame;
+var
+  x, y: Integer;
+begin
+  for x := 0 to Image.Width - 1 do
+    for y := 0 to Image.Height - 1 do
+      Image.Canvas.Pixels[x, y] := ColorBuffer[x][y];
+end;
+
+procedure TForm1.InitFrame;
+var
+  x, y, W, H: Integer;
+begin
+  W := Image.Width;
+  H := Image.Height;
+
+  SetLength(ColorBuffer, W, H);
+  SetLength(ZBuffer, W, H);
+
+  for y := 0 to H-1 do
+    for x := 0 to W-1 do
+    begin
+      ColorBuffer[x][y] := clBlack;
+      ZBuffer[x][y] := 1e30;  // profundidade infinita
+    end;
+end;
+
+procedure TForm1.ZBufferAula17(RotateMatrix : TMatrix4x4);
+var
+  x, y, z, t, a, b, step, stepA: Double;
+  M1, M2, M3, M : TMatrix4x4;
+  Eye, Target, Up, pt : Point3D;
+  c: TColor;
+  x2d, y2d : Integer;
+begin
+  // Posicionar camera
+  Eye.x := 200;
+  Eye.y := 200;
+  Eye.z := 0;
+
+  Target.x := 0;
+  Target.y := 0;
+  Target.z := 0;
+
+  Up.x := 0;
+  Up.y := 1;
+  Up.z := 0;
+
+  MakeView(M1, Eye, Target, Up);
+  MakeOrtho(M2, -50, 200, -50, 200, 0, 400);
+  MakeViewport(M3, Image.Width, Image.Height);
+
+  M := MultiplyMatrix(RotateMatrix, M1);
+  M := MultiplyMatrix(M, M2);
+  M := MultiplyMatrix(M, M3);
+
+  step := 0.1;
+  stepA := 0.01;
+
+  InitFrame;
+
+  // Desenhar objeto 1
+  x := 10;
+
+  while x <= 30 do
+  begin
+    y := 20;
+    while y <= 40 do
+    begin
+      z := x * x + y;
+
+      pt.x := x;
+      pt.y := y;
+      pt.z := z;
+
+      c := clBlue;
+
+      pt := TransformPoint(pt, M);
+
+      x2d := Round(pt.x);
+      y2d := Round(pt.y);
+
+      PutPixelZ(x2d, y2d, pt.z, c);
+
+      y := y + Step;
+    end;
+    x := x + Step;
+  end;
+
+  // Desenhar objeto 2
+  x := 50; // ate 100
+
+  while x <= 100 do
+  begin
+    y := 30;
+    while y <= 80 do
+    begin
+      z := 3 * x - 2 * y + 5;
+
+      pt.x := x;
+      pt.y := y;
+      pt.z := z;
+
+      c := clRed;
+
+      pt := TransformPoint(pt, M);
+
+      x2d := Round(pt.x);
+      y2d := Round(pt.y);
+
+      PutPixelZ(x2d, y2d, pt.z, c);
+
+      y := y + Step;
+    end;
+    x := x + Step;
+  end;
+
+  // Desenhar objeto 3
+  a := 0; // ate 2pi
+  while a <= 2 * Pi do
+  begin
+    t := 0;
+    while t <= 50 do
+    begin
+      // equações paramétricas
+      x := 30 + Cos(a) * t;
+      y := 50 + Sin(a) * t;
+      z := 10 + t;
+
+      // cria ponto
+      pt.x := x;
+      pt.y := y;
+      pt.z := z;
+
+      // cor
+      c := clYellow;
+
+      // transforma para 2D
+      pt := TransformPoint(pt, M);
+
+      x2d := Round(pt.x);
+      y2d := Round(pt.y);
+
+      // Z-buffer
+      PutPixelZ(x2d, y2d, pt.z, c);
+
+      t := t + step;
+    end;
+
+    a := a + stepA;
+  end;
+
+  // Desenhar objeto 4
+  a := 0;
+  while a <= 2 * Pi do
+  begin
+    b := 0;
+    while b <= 2 * Pi do
+    begin
+      x := 100 + 30 * Cos(a) * Cos(b);
+      y := 50  + 30 * Cos(a) * Sin(b);
+      z := 20  + 30 * Sin(a);
+
+      pt.x := x;
+      pt.y := y;
+      pt.z := z;
+
+      c := clGreen;
+
+      pt := TransformPoint(pt, M);
+
+      x2d := Round(pt.x);
+      y2d := Round(pt.y);
+
+      PutPixelZ(x2d, y2d, pt.z, c);
+
+      b := b + stepA;
+    end;
+
+    a := a + stepA;
+  end;
+
+  // Desenhar objeto 5
+  // Cubo de lado 40 com centro na origem
+
+  //
+  // Face X = +20
+  //
+  x := 20;
+  y := -20;
+  while y <= 20 do
+  begin
+    z := -20;
+    while z <= 20 do
+    begin
+      pt.x := x;
+      pt.y := y;
+      pt.z := z;
+
+      c := clWhite;
+
+      pt := TransformPoint(pt, M);
+      x2d := Round(pt.x);
+      y2d := Round(pt.y);
+      PutPixelZ(x2d, y2d, pt.z, c);
+
+      z := z + Step;
+    end;
+    y := y + Step;
+  end;
+
+
+  //
+  // Face X = -20
+  //
+  x := -20;
+  y := -20;
+  while y <= 20 do
+  begin
+    z := -20;
+    while z <= 20 do
+    begin
+      pt.x := x;
+      pt.y := y;
+      pt.z := z;
+
+      c := clWhite;
+
+      pt := TransformPoint(pt, M);
+      x2d := Round(pt.x);
+      y2d := Round(pt.y);
+      PutPixelZ(x2d, y2d, pt.z, c);
+
+      z := z + Step;
+    end;
+    y := y + Step;
+  end;
+
+
+  //
+  // Face Y = +20
+  //
+  y := 20;
+  x := -20;
+  while x <= 20 do
+  begin
+    z := -20;
+    while z <= 20 do
+    begin
+      pt.x := x;
+      pt.y := y;
+      pt.z := z;
+
+      c := clWhite;
+
+      pt := TransformPoint(pt, M);
+      x2d := Round(pt.x);
+      y2d := Round(pt.y);
+      PutPixelZ(x2d, y2d, pt.z, c);
+
+      z := z + Step;
+    end;
+    x := x + Step;
+  end;
+
+
+  //
+  // Face Y = -20
+  //
+  y := -20;
+  x := -20;
+  while x <= 20 do
+  begin
+    z := -20;
+    while z <= 20 do
+    begin
+      pt.x := x;
+      pt.y := y;
+      pt.z := z;
+
+      c := clWhite;
+
+      pt := TransformPoint(pt, M);
+      x2d := Round(pt.x);
+      y2d := Round(pt.y);
+      PutPixelZ(x2d, y2d, pt.z, c);
+
+      z := z + Step;
+    end;
+    x := x + Step;
+  end;
+
+
+  //
+  // Face Z = +20
+  //
+  z := 20;
+  x := -20;
+  while x <= 20 do
+  begin
+    y := -20;
+    while y <= 20 do
+    begin
+      pt.x := x;
+      pt.y := y;
+      pt.z := z;
+
+      c := clWhite;
+
+      pt := TransformPoint(pt, M);
+      x2d := Round(pt.x);
+      y2d := Round(pt.y);
+      PutPixelZ(x2d, y2d, pt.z, c);
+
+      y := y + Step;
+    end;
+    x := x + Step;
+  end;
+
+
+  //
+  // Face Z = -20
+  //
+  z := -20;
+  x := -20;
+  while x <= 20 do
+  begin
+    y := -20;
+    while y <= 20 do
+    begin
+      pt.x := x;
+      pt.y := y;
+      pt.z := z;
+
+      c := clWhite;
+
+      pt := TransformPoint(pt, M);
+      x2d := Round(pt.x);
+      y2d := Round(pt.y);
+      PutPixelZ(x2d, y2d, pt.z, c);
+
+      y := y + Step;
+    end;
+    x := x + Step;
+  end;
+
+  EndFrame;
+end;
+
+function TForm1.IdentityMatrix4x4: TMatrix4x4;
+var
+  M: TMatrix4x4;
+  i, j: Integer;
+begin
+  for i := 0 to 3 do
+    for j := 0 to 3 do
+      M[i, j] := Ord(i = j);
+  Result := M;
+end;
+
+function TForm1.RotationMatrixX(a: Double): TMatrix4x4;
+var
+  M: TMatrix4x4;
+begin
+  M := IdentityMatrix4x4;
+  M[1,1] := Cos(a);
+  M[1,2] := Sin(a);
+  M[2,1] := -Sin(a);
+  M[2,2] := Cos(a);
+  Result := M;
+end;
+
+function TForm1.RotationMatrixY(a: Double): TMatrix4x4;
+var
+  M: TMatrix4x4;
+begin
+  M := IdentityMatrix4x4;
+  M[0,0] := Cos(a);
+  M[0,2] := -Sin(a);
+  M[2,0] := Sin(a);
+  M[2,2] := Cos(a);
+  Result := M;
+end;
+
+function TForm1.RotationMatrixZ(a: Double): TMatrix4x4;
+var
+  M: TMatrix4x4;
+begin
+  M := IdentityMatrix4x4;
+  M[0,0] := Cos(a);
+  M[1,0] := -Sin(a);
+  M[0,1] := Sin(a);
+  M[1,1] := Cos(a);
+  Result := M;
+end;
+
+
+procedure TForm1.PlanosZBuffer(RotateMatrix : TMatrix4x4);
+var
+  x, y, z, u, v, step: Double;
+  M1, M2, M3, M : TMatrix4x4;
+  Eye, Target, Up, pt, p0, p1, p2, p3 : Point3D;
+  c: TColor;
+  x2d, y2d : Integer;
+begin
+  // Posicionar camera
+  Eye.x := 120;
+  Eye.y := -100;
+  Eye.z := 80;
+
+  Target.x := 0;
+  Target.y := 0;
+  Target.z := 0;
+
+  Up.x := 0;
+  Up.y := 0;
+  Up.z := -1;
+
+  MakeView(M1, Eye, Target, Up);
+  MakeOrtho(M2, -50, 200, -50, 200, 0, 400);
+  MakeViewport(M3, Image.Width, Image.Height);
+
+  M := MultiplyMatrix(RotateMatrix, M1);
+  M := MultiplyMatrix(M, M2);
+  M := MultiplyMatrix(M, M3);
+
+  step := 0.1;
+
+  InitFrame;
+
+  // -------------------
+  // Verde
+  // Plano 1: (0,0,0) ate (20,0,80)
+  y := 0;
+  while y <= 0 do
+  begin
+    x := 0;
+    while x <= 20 do
+    begin
+      z := 0;
+      while z <= 80 do
+      begin
+        pt.x := x;
+        pt.y := y;
+        pt.z := z;
+        pt := TransformPoint(pt, M);
+        PutPixelZ(Round(pt.x), Round(pt.y), pt.z, clGreen);
+        z := z + Step;
+      end;
+      x := x + Step;
+    end;
+    y := y + Step;
+  end;
+
+  // Plano 2: (0,0,0) ate (20,40,0)
+  z := 0;
+  while z <= 0 do
+  begin
+    x := 0;
+    while x <= 20 do
+    begin
+      y := 0;
+      while y <= 40 do
+      begin
+        pt.x := x;
+        pt.y := y;
+        pt.z := z;
+        pt := TransformPoint(pt, M);
+        PutPixelZ(Round(pt.x), Round(pt.y), pt.z, clGreen);
+        y := y + Step;
+      end;
+      x := x + Step;
+    end;
+    z := z + Step;
+  end;
+
+  // Plano 3: (0,0,80) ate (20,40,80)
+  z := 80;
+  while z <= 80 do
+  begin
+    x := 0;
+    while x <= 20 do
+    begin
+      y := 0;
+      while y <= 40 do
+      begin
+        pt.x := x;
+        pt.y := y;
+        pt.z := z;
+        pt := TransformPoint(pt, M);
+        PutPixelZ(Round(pt.x), Round(pt.y), pt.z, clGreen);
+        y := y + Step;
+      end;
+      x := x + Step;
+    end;
+    z := z + Step;
+  end;
+
+  // Plano 4: (0,40,0) ate (20,40,80)
+  y := 40;
+  while y <= 40 do
+  begin
+    x := 0;
+    while x <= 20 do
+    begin
+      z := 0;
+      while z <= 80 do
+      begin
+        pt.x := x;
+        pt.y := y;
+        pt.z := z;
+        pt := TransformPoint(pt, M);
+        PutPixelZ(Round(pt.x), Round(pt.y), pt.z, clGreen);
+        z := z + Step;
+      end;
+      x := x + Step;
+    end;
+    y := y + Step;
+  end;
+
+  // Plano 5: (0,0,0) ate (0,40,80)
+  x := 0;
+  while x <= 0 do
+  begin
+    y := 0;
+    while y <= 40 do
+    begin
+      z := 0;
+      while z <= 80 do
+      begin
+        pt.x := x;
+        pt.y := y;
+        pt.z := z;
+        pt := TransformPoint(pt, M);
+        PutPixelZ(Round(pt.x), Round(pt.y), pt.z, clGreen);
+        z := z + Step;
+      end;
+      y := y + Step;
+    end;
+    x := x + Step;
+  end;
+
+  // -------------------
+  // Amarelo: (20,0,0) ate (20,40,80)
+  x := 20;
+  y := 0;
+  while y <= 40 do
+  begin
+    z := 0;
+    while z <= 80 do
+    begin
+      pt.x := x;
+      pt.y := y;
+      pt.z := z;
+      pt := TransformPoint(pt, M);
+      PutPixelZ(Round(pt.x), Round(pt.y), pt.z, clYellow);
+      z := z + Step;
+    end;
+    y := y + Step;
+  end;
+
+  // -------------------
+  // Azul: (100,0,0) ate (20,40,80)
+  p0.x := 100;
+  p0.y := 0;
+  p0.z := 0;
+
+  p1.x := 20;
+  p1.y := 0;
+  p1.z := 80;
+
+  p2.x := 20;
+  p2.y := 40;
+  p2.z := 80;
+
+  p3.x := 100;
+  p3.y := 40;
+  p3.z := 0;
+
+  v := 0;
+  while v <= 1 do
+  begin
+    u := 0;
+    while u <= 1 do
+    begin
+      pt.x := (1-u)*(1-v)*p0.x + u*(1-v)*p1.x + u*v*p2.x + (1-u)*v*p3.x;
+      pt.y := (1-u)*(1-v)*p0.y + u*(1-v)*p1.y + u*v*p2.y + (1-u)*v*p3.y;
+      pt.z := (1-u)*(1-v)*p0.z + u*(1-v)*p1.z + u*v*p2.z + (1-u)*v*p3.z;
+
+      pt := TransformPoint(pt, M);
+      PutPixelZ(Round(pt.x), Round(pt.y), pt.z, clBlue);
+
+      u := u + Step / 100;
+    end;
+    v := v + Step / 40;
+  end;
+
+
+  // -------------------
+  // Vermelho: (20,0,0) ate (100,40,0)
+  z := 0;
+  while z <= 0 do
+  begin
+    x := 20;
+    while x <= 100 do
+    begin
+      y := 0;
+      while y <= 40 do
+      begin
+        pt.x := x;
+        pt.y := y;
+        pt.z := z;
+        pt := TransformPoint(pt, M);
+        PutPixelZ(Round(pt.x), Round(pt.y), pt.z, clRed);
+        y := y + Step;
+      end;
+      x := x + Step;
+    end;
+    z := z + Step;
+  end;
+
+  // -------------------
+  // Marrom: (100,0,0) ate (120,40,0)
+  z := 0;
+  while z <= 0 do
+  begin
+    x := 100;
+    while x <= 120 do
+    begin
+      y := 0;
+      while y <= 40 do
+      begin
+        pt.x := x;
+        pt.y := y;
+        pt.z := z;
+        pt := TransformPoint(pt, M);
+        PutPixelZ(Round(pt.x), Round(pt.y), pt.z, clMaroon);
+        y := y + Step;
+      end;
+      x := x + Step;
+    end;
+    z := z + Step;
+  end;
+
+  EndFrame;
 end;
 
 end.
