@@ -61,6 +61,7 @@ type
 
   TForm1 = class(TForm)
     KEdit: TEdit;
+    MenuItem17: TMenuItem;
     NEdit: TEdit;
     EixoEdit1: TEdit;
     EixoLabel1: TLabel;
@@ -151,6 +152,7 @@ type
     procedure MenuItem14Click(Sender: TObject);
     procedure MenuItem15Click(Sender: TObject);
     procedure MenuItem16Click(Sender: TObject);
+    procedure MenuItem17Click(Sender: TObject);
     procedure RadioButton1Change(Sender: TObject);
     procedure RadioButton2Change(Sender: TObject);
     procedure RotCentroButtonChange(Sender: TObject);
@@ -237,6 +239,7 @@ type
 
     function IdentityMatrix4x4: TMatrix4x4;
     procedure ZBufferAula17(RotateMatrix : TMatrix4x4);
+    procedure PlanosZBuffer(RotateMatrix : TMatrix4x4);
 
     function RotationMatrixX(a: Double): TMatrix4x4;
     function RotationMatrixY(a: Double): TMatrix4x4;
@@ -1295,6 +1298,7 @@ begin
   if (opt_projecao = 4) and (opt = 15) then
   begin
     aa := StrToFloat(GrausEdit.Text);
+    aa := StrToFloat(GrausEdit.Text) * Pi / 180;
 
     if (EixoEdit.Text = 'X') or (EixoEdit.Text = 'x') then
       begin
@@ -1323,6 +1327,30 @@ begin
     N_Ui := StrToInt(NEdit.Text);
 
     Iluminacoes(K_Ui, N_Ui);
+  end;
+
+  if (opt_projecao = 4) and (opt = 17) then
+  begin
+    aa := StrToFloat(GrausEdit.Text);
+    aa := StrToFloat(GrausEdit.Text) * Pi / 180;
+
+    if (EixoEdit.Text = 'X') or (EixoEdit.Text = 'x') then
+      begin
+        RotateMatrix := RotationMatrixX(aa);
+      end;
+
+      if (EixoEdit.Text = 'Y') or (EixoEdit.Text = 'y') then
+      begin
+        RotateMatrix := RotationMatrixY(aa);
+      end;
+
+      if (EixoEdit.Text = 'Z') or (EixoEdit.Text = 'z') then
+      begin
+        RotateMatrix := RotationMatrixZ(aa);
+      end;
+
+      LimparCanvas;
+      PlanosZBuffer(RotateMatrix);
   end;
 end;
 
@@ -1875,6 +1903,17 @@ begin
   ZBufferAula17(RotateMatrix);
 
   opt := 15;
+end;
+
+procedure TForm1.MenuItem17Click(Sender: TObject);
+var
+  RotateMatrix: TMatrix4x4;
+begin
+  RotateMatrix := IdentityMatrix4x4;
+
+  PlanosZBuffer(RotateMatrix);
+
+  opt := 17;
 end;
 
 procedure TForm1.RadioButton1Change(Sender: TObject);
@@ -2923,7 +2962,7 @@ begin
 
   M[0,0] := 2 / (r - l);
   M[1,1] := 2 / (t - b);
-  M[2,2] := -2 / (f - n);
+  M[2,2] := 2 / (f - n);
 
   M[3,0] := -(r + l) / (r - l);
   M[3,1] := -(t + b) / (t - b);
@@ -3348,10 +3387,261 @@ var
 begin
   M := IdentityMatrix4x4;
   M[0,0] := Cos(a);
-  M[0,1] := Sin(a);
   M[1,0] := -Sin(a);
+  M[0,1] := Sin(a);
   M[1,1] := Cos(a);
   Result := M;
+end;
+
+
+procedure TForm1.PlanosZBuffer(RotateMatrix : TMatrix4x4);
+var
+  x, y, z, u, v, step: Double;
+  M1, M2, M3, M : TMatrix4x4;
+  Eye, Target, Up, pt, p0, p1, p2, p3 : Point3D;
+  c: TColor;
+  x2d, y2d : Integer;
+begin
+  // Posicionar camera
+  Eye.x := 120;
+  Eye.y := -100;
+  Eye.z := 80;
+
+  Target.x := 0;
+  Target.y := 0;
+  Target.z := 0;
+
+  Up.x := 0;
+  Up.y := 0;
+  Up.z := -1;
+
+  MakeView(M1, Eye, Target, Up);
+  MakeOrtho(M2, -50, 200, -50, 200, 0, 400);
+  MakeViewport(M3, Image.Width, Image.Height);
+
+  M := MultiplyMatrix(RotateMatrix, M1);
+  M := MultiplyMatrix(M, M2);
+  M := MultiplyMatrix(M, M3);
+
+  step := 0.1;
+
+  InitFrame;
+
+  // -------------------
+  // Verde
+  // Plano 1: (0,0,0) ate (20,0,80)
+  y := 0;
+  while y <= 0 do
+  begin
+    x := 0;
+    while x <= 20 do
+    begin
+      z := 0;
+      while z <= 80 do
+      begin
+        pt.x := x;
+        pt.y := y;
+        pt.z := z;
+        pt := TransformPoint(pt, M);
+        PutPixelZ(Round(pt.x), Round(pt.y), pt.z, clGreen);
+        z := z + Step;
+      end;
+      x := x + Step;
+    end;
+    y := y + Step;
+  end;
+
+  // Plano 2: (0,0,0) ate (20,40,0)
+  z := 0;
+  while z <= 0 do
+  begin
+    x := 0;
+    while x <= 20 do
+    begin
+      y := 0;
+      while y <= 40 do
+      begin
+        pt.x := x;
+        pt.y := y;
+        pt.z := z;
+        pt := TransformPoint(pt, M);
+        PutPixelZ(Round(pt.x), Round(pt.y), pt.z, clGreen);
+        y := y + Step;
+      end;
+      x := x + Step;
+    end;
+    z := z + Step;
+  end;
+
+  // Plano 3: (0,0,80) ate (20,40,80)
+  z := 80;
+  while z <= 80 do
+  begin
+    x := 0;
+    while x <= 20 do
+    begin
+      y := 0;
+      while y <= 40 do
+      begin
+        pt.x := x;
+        pt.y := y;
+        pt.z := z;
+        pt := TransformPoint(pt, M);
+        PutPixelZ(Round(pt.x), Round(pt.y), pt.z, clGreen);
+        y := y + Step;
+      end;
+      x := x + Step;
+    end;
+    z := z + Step;
+  end;
+
+  // Plano 4: (0,40,0) ate (20,40,80)
+  y := 40;
+  while y <= 40 do
+  begin
+    x := 0;
+    while x <= 20 do
+    begin
+      z := 0;
+      while z <= 80 do
+      begin
+        pt.x := x;
+        pt.y := y;
+        pt.z := z;
+        pt := TransformPoint(pt, M);
+        PutPixelZ(Round(pt.x), Round(pt.y), pt.z, clGreen);
+        z := z + Step;
+      end;
+      x := x + Step;
+    end;
+    y := y + Step;
+  end;
+
+  // Plano 5: (0,0,0) ate (0,40,80)
+  x := 0;
+  while x <= 0 do
+  begin
+    y := 0;
+    while y <= 40 do
+    begin
+      z := 0;
+      while z <= 80 do
+      begin
+        pt.x := x;
+        pt.y := y;
+        pt.z := z;
+        pt := TransformPoint(pt, M);
+        PutPixelZ(Round(pt.x), Round(pt.y), pt.z, clGreen);
+        z := z + Step;
+      end;
+      y := y + Step;
+    end;
+    x := x + Step;
+  end;
+
+  // -------------------
+  // Amarelo: (20,0,0) ate (20,40,80)
+  x := 20;
+  y := 0;
+  while y <= 40 do
+  begin
+    z := 0;
+    while z <= 80 do
+    begin
+      pt.x := x;
+      pt.y := y;
+      pt.z := z;
+      pt := TransformPoint(pt, M);
+      PutPixelZ(Round(pt.x), Round(pt.y), pt.z, clYellow);
+      z := z + Step;
+    end;
+    y := y + Step;
+  end;
+
+  // -------------------
+  // Azul: (100,0,0) ate (20,40,80)
+  p0.x := 100;
+  p0.y := 0;
+  p0.z := 0;
+
+  p1.x := 20;
+  p1.y := 0;
+  p1.z := 80;
+
+  p2.x := 20;
+  p2.y := 40;
+  p2.z := 80;
+
+  p3.x := 100;
+  p3.y := 40;
+  p3.z := 0;
+
+  v := 0;
+  while v <= 1 do
+  begin
+    u := 0;
+    while u <= 1 do
+    begin
+      pt.x := (1-u)*(1-v)*p0.x + u*(1-v)*p1.x + u*v*p2.x + (1-u)*v*p3.x;
+      pt.y := (1-u)*(1-v)*p0.y + u*(1-v)*p1.y + u*v*p2.y + (1-u)*v*p3.y;
+      pt.z := (1-u)*(1-v)*p0.z + u*(1-v)*p1.z + u*v*p2.z + (1-u)*v*p3.z;
+
+      pt := TransformPoint(pt, M);
+      PutPixelZ(Round(pt.x), Round(pt.y), pt.z, clBlue);
+
+      u := u + Step / 100;
+    end;
+    v := v + Step / 40;
+  end;
+
+
+  // -------------------
+  // Vermelho: (20,0,0) ate (100,40,0)
+  z := 0;
+  while z <= 0 do
+  begin
+    x := 20;
+    while x <= 100 do
+    begin
+      y := 0;
+      while y <= 40 do
+      begin
+        pt.x := x;
+        pt.y := y;
+        pt.z := z;
+        pt := TransformPoint(pt, M);
+        PutPixelZ(Round(pt.x), Round(pt.y), pt.z, clRed);
+        y := y + Step;
+      end;
+      x := x + Step;
+    end;
+    z := z + Step;
+  end;
+
+  // -------------------
+  // Marrom: (100,0,0) ate (120,40,0)
+  z := 0;
+  while z <= 0 do
+  begin
+    x := 100;
+    while x <= 120 do
+    begin
+      y := 0;
+      while y <= 40 do
+      begin
+        pt.x := x;
+        pt.y := y;
+        pt.z := z;
+        pt := TransformPoint(pt, M);
+        PutPixelZ(Round(pt.x), Round(pt.y), pt.z, clMaroon);
+        y := y + Step;
+      end;
+      x := x + Step;
+    end;
+    z := z + Step;
+  end;
+
+  EndFrame;
 end;
 
 end.

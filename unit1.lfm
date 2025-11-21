@@ -565,6 +565,10 @@ object Form1: TForm1
         Caption = 'ZBuffer - aula 17'
         OnClick = MenuItem16Click
       end
+      object MenuItem17: TMenuItem
+        Caption = 'Planos ZBuffer'
+        OnClick = MenuItem17Click
+      end
     end
   end
   object pictureDialog: TOpenPictureDialog
