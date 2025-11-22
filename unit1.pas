@@ -57,11 +57,17 @@ TYPE
 type
   TMatriz = array of array of Double;
 
+  TVector3D = record
+    x, y, z: Double;
+  end;
+
   { TForm1 }
 
   TForm1 = class(TForm)
+    Button1: TButton;
     KEdit: TEdit;
     MenuItem17: TMenuItem;
+    MenuItem18: TMenuItem;
     NEdit: TEdit;
     EixoEdit1: TEdit;
     EixoLabel1: TLabel;
@@ -140,6 +146,7 @@ type
     GlobalRadioButton: TRadioButton;
     ZEscalaLabel1: TLabel;
     procedure abrirArquivoClick(Sender: TObject);
+    procedure Button1Click(Sender: TObject);
     procedure CirculoGrausClick(Sender: TObject);
     procedure desenharMenuItemClick(Sender: TObject);
     procedure EixoLabel1Click(Sender: TObject);
@@ -153,6 +160,7 @@ type
     procedure MenuItem15Click(Sender: TObject);
     procedure MenuItem16Click(Sender: TObject);
     procedure MenuItem17Click(Sender: TObject);
+    procedure MenuItem18Click(Sender: TObject);
     procedure RadioButton1Change(Sender: TObject);
     procedure RadioButton2Change(Sender: TObject);
     procedure RotCentroButtonChange(Sender: TObject);
@@ -247,6 +255,11 @@ type
 
     procedure Iluminacoes(KConst, NConst : Integer);
 
+    function RotacionarPonto(P: TPoint; EixoX, CanvasCenterY: Integer; Angulo: Double): TVector3D;
+
+    procedure DesenharSuperficieBilinear(P00, P01, P10, P11: TVector3D;
+      Cor: TColor; const MTransform: TMatriz);
+
   end;
 const
   INSIDE = 0;  // 0000
@@ -274,6 +287,9 @@ var
   ColorBuffer: TColorBuffer;
   K_Ui: integer;
   N_Ui: integer;
+  EixoVarreduraX: Integer;
+  PerfilUsuario: array of TPoint;
+  ContadorPerfil: Integer;
 
 function MinInt(a, b: Integer): Integer;
 function MaxInt(a, b: Integer): Integer;
@@ -288,6 +304,135 @@ begin
   if pictureDialog.Execute then
   begin
     image.Picture.LoadFromFile(pictureDialog.FileName);
+  end;
+end;
+
+procedure TForm1.Button1Click(Sender: TObject);
+var
+  i, k, StepSimplificacao, ContagemSimplificada: Integer;
+  Angulo, AnguloStep: Double;
+  P00, P01, P10, P11, P_Eixo_1: TVector3D;
+  P1, P2: TPoint;
+  MTransform: TMatriz;
+  a, b, x_idx, y_idx, ImgWidth, ImgHeight, canvasCenterY, y_eixo: Integer;
+  PerfilSimplificado: array of TPoint;
+begin
+  // SÛ faz a varredura se existir perfil suficiente
+  if ContadorPerfil < 2 then Exit;
+
+  // 1. INICIALIZAR TELA E Z-BUFFER
+  ImgWidth  := Image.Width;
+  ImgHeight := Image.Height;
+  canvasCenterY := ImgHeight div 2;
+
+  Image.Canvas.Brush.Color := clBlack;
+  Image.Canvas.FillRect(0, 0, ImgWidth, ImgHeight);
+
+  SetLength(ZBuffer, ImgHeight, ImgWidth);
+  for y_idx := 0 to ImgHeight - 1 do
+    for x_idx := 0 to ImgWidth - 1 do
+      ZBuffer[y_idx, x_idx] := Math.Infinity;
+
+  // 2. MATRIZ DE TRANSFORMA«√O = IDENTIDADE (sem RadioButtons)
+  SetLength(MTransform, 4, 4);
+  for a := 0 to 3 do
+    for b := 0 to 3 do
+      MTransform[a,b] := 0.0;
+  MTransform[0,0] := 1.0;
+  MTransform[1,1] := 1.0;
+  MTransform[2,2] := 1.0;
+  MTransform[3,3] := 1.0;
+
+  // 3. SIMPLIFICAR O PERFIL
+  StepSimplificacao := 30; // Pega 1 ponto a cada 30 pixels
+  if StepSimplificacao = 0 then StepSimplificacao := 1;
+  if ContadorPerfil < StepSimplificacao then StepSimplificacao := 1;
+
+  SetLength(PerfilSimplificado, 0);
+  k := 0;
+  i := 0;
+
+  while i < ContadorPerfil do
+  begin
+    SetLength(PerfilSimplificado, k + 1);
+    PerfilSimplificado[k] := PerfilUsuario[i];
+    Inc(k);
+    Inc(i, StepSimplificacao);
+  end;
+
+  if (k = 0) or ((i - StepSimplificacao) <> (ContadorPerfil - 1)) then
+  begin
+    SetLength(PerfilSimplificado, k + 1);
+    PerfilSimplificado[k] := PerfilUsuario[ContadorPerfil - 1];
+    Inc(k);
+  end;
+
+  ContagemSimplificada := k;
+  if ContagemSimplificada < 2 then Exit;
+
+  // 4. GERAR SUPERFÕCIES DE VARREDURA
+  AnguloStep := 15 * Pi / 180; // 15 graus por passo
+  Angulo := 0;
+
+  while Angulo < (2 * Pi) do
+  begin
+    // Pele entre segmentos consecutivos do perfil
+    for i := 0 to ContagemSimplificada - 2 do
+    begin
+      P1 := PerfilSimplificado[i];
+      P2 := PerfilSimplificado[i+1];
+
+      // RotaÁ„o em torno da linha vertical x = EixoVarreduraX
+      P00 := RotacionarPonto(P1, EixoVarreduraX, canvasCenterY, Angulo);
+      P01 := RotacionarPonto(P1, EixoVarreduraX, canvasCenterY, Angulo + AnguloStep);
+      P10 := RotacionarPonto(P2, EixoVarreduraX, canvasCenterY, Angulo);
+      P11 := RotacionarPonto(P2, EixoVarreduraX, canvasCenterY, Angulo + AnguloStep);
+
+      DesenharSuperficieBilinear(P00, P01, P10, P11, clYellow, MTransform);
+    end;
+
+    // "AnÈis" horizontais (fatia de pizza atÈ o eixo)
+    for i := 0 to ContagemSimplificada - 1 do
+    begin
+      P1 := PerfilSimplificado[i];
+
+      P00 := RotacionarPonto(P1, EixoVarreduraX, canvasCenterY, Angulo);
+      P01 := RotacionarPonto(P1, EixoVarreduraX, canvasCenterY, Angulo + AnguloStep);
+
+      // Ponto no eixo na mesma altura do perfil
+      P_Eixo_1.x := EixoVarreduraX;
+      P_Eixo_1.y := P00.y;
+      P_Eixo_1.z := 0;
+
+      DesenharSuperficieBilinear(P00, P01, P_Eixo_1, P_Eixo_1, clGray, MTransform);
+    end;
+
+    Angulo := Angulo + AnguloStep;
+  end;
+
+  // 5. LIMPAR PERFIL SIMPLIFICADO
+  SetLength(MTransform, 0, 0);
+  SetLength(PerfilSimplificado, 0);
+
+  // 6. REDESENHAR O EIXO E O PERFIL ORIGINAL NA MESMA IMAGE
+
+  // Eixo pontilhado
+  for y_eixo := 0 to ImgHeight - 1 do
+  begin
+    if (y_eixo div 5) mod 2 = 0 then
+    begin
+      if (EixoVarreduraX >= 0) and (EixoVarreduraX < ImgWidth) then
+        Image.Canvas.Pixels[EixoVarreduraX, y_eixo] := clGray;
+    end;
+  end;
+
+  // Perfil original em vermelho
+  if ContadorPerfil > 1 then
+  begin
+    Image.Canvas.Pen.Color := clRed;
+    Image.Canvas.MoveTo(PerfilUsuario[0].X, PerfilUsuario[0].Y);
+    for i := 1 to ContadorPerfil - 1 do
+      Image.Canvas.LineTo(PerfilUsuario[i].X, PerfilUsuario[i].Y);
   end;
 end;
 
@@ -1916,6 +2061,24 @@ begin
   opt := 17;
 end;
 
+procedure TForm1.MenuItem18Click(Sender: TObject);
+begin
+  opt := 18;
+
+  Image.Canvas.Brush.Color := clBlack;
+  Image.Canvas.FillRect(0, 0, Image.Width, Image.Height);
+
+  EixoVarreduraX := Image.Width div 2;
+  Image.Canvas.Pen.Color := clGray;
+  Image.Canvas.Pen.Style := psDot;
+  Image.Canvas.MoveTo(EixoVarreduraX, 0);
+  Image.Canvas.LineTo(EixoVarreduraX, Image.Height);
+  Image.Canvas.Pen.Style := psSolid;
+
+  SetLength(PerfilUsuario, 0);
+  ContadorPerfil := 0;
+end;
+
 procedure TForm1.RadioButton1Change(Sender: TObject);
 begin
   opt_iluminacao := 1;
@@ -1984,25 +2147,39 @@ begin
   end;
 
   if (opt = 10) then
-begin
-  if hasPrevious then
   begin
-    // Criar nova reta
+    if hasPrevious then
+    begin
+      // Criar nova reta
 
-    newLine.p1 := previousPoint;
-    newLine.p2 := Point(X, Y);
+      newLine.p1 := previousPoint;
+      newLine.p2 := Point(X, Y);
 
-    lineBresenham(newLine.p1, newLine.p2);
+      lineBresenham(newLine.p1, newLine.p2);
 
-    // Inserir no pol√≠gono
-    SetLength(poly.edges, Length(poly.edges) + 1);
-    poly.edges[High(poly.edges)] := newLine;
+      // Inserir no pol√≠gono
+      SetLength(poly.edges, Length(poly.edges) + 1);
+      poly.edges[High(poly.edges)] := newLine;
+    end;
+
+    // Atualiza ponto anterior
+    previousPoint := Point(X, Y);
+    hasPrevious := True;
   end;
 
-  // Atualiza ponto anterior
-  previousPoint := Point(X, Y);
-  hasPrevious := True;
-end;
+  if(opt = 18) then
+  begin
+    // garante que o usu·rio sÛ desenhe ‡ direita do eixo
+    if X <= EixoVarreduraX then Exit;
+
+    desenhar := True;
+    Image.Canvas.Pixels[X, Y] := clRed;
+
+    // primeiro ponto do perfil
+    SetLength(PerfilUsuario, ContadorPerfil + 1);
+    PerfilUsuario[ContadorPerfil] := Point(X, Y);
+    Inc(ContadorPerfil);
+  end;
 end;
 
 procedure TForm1.imageMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
@@ -2011,6 +2188,18 @@ begin
      begin
        image.Canvas.Pixels[X, Y] := clred;
      end;
+
+     if (opt = 18) and desenhar then
+    begin
+      if X <= EixoVarreduraX then Exit;
+
+      Image.Canvas.Pixels[X, Y] := clRed;
+
+      // registra o ponto atual no perfil
+      SetLength(PerfilUsuario, ContadorPerfil + 1);
+      PerfilUsuario[ContadorPerfil] := Point(X, Y);
+      Inc(ContadorPerfil);
+    end;
 end;
 
 function ComputeOutCode(x, y, xmin, ymin, xmax, ymax: Integer): Integer;
@@ -2346,6 +2535,9 @@ begin
     if CohenSutherlandClip(p1.X, p1.Y, p2.X, p2.Y, xmin, ymin, xmax, ymax) then
       lineBresenham(p1, p2);  // s√≥ desenha se a linha (ou parte dela) estiver dentro
   end;
+
+  if (opt = 18) then
+    desenhar := False;
 end;
 
 function MinInt(a, b: Integer): Integer;
@@ -3642,6 +3834,94 @@ begin
   end;
 
   EndFrame;
+end;
+
+function TForm1.RotacionarPonto(P: TPoint; EixoX, CanvasCenterY: Integer; Angulo: Double): TVector3D;
+var
+  Raio: Double;
+begin
+  // Raio È a dist‚ncia do ponto (P.X) ao eixo de rotaÁ„o (EixoX)
+  // Assume que o perfil est· no plano XY do mundo (X = Raio, Y = altura, Z = 0)
+  Raio := P.X - EixoX;
+
+
+  Result.y := CanvasCenterY - P.Y; // Y do mundo = Altura no canvas
+
+
+  Result.x := Raio * cos(Angulo);
+  Result.z := Raio * sin(Angulo); // Z negativo para "dentro" da tela
+end;
+
+procedure TForm1.DesenharSuperficieBilinear(P00, P01, P10, P11: TVector3D;
+  Cor: TColor; const MTransform: TMatriz);
+var
+  u, v, step: Double;
+  P_uv: TVector3D;
+  MC, MResultado: TMatriz;
+  px, py: Integer;
+  z_prof: Double;
+  ImgWidth, ImgHeight, canvasCenterX, canvasCenterY: Integer;
+begin
+  ImgWidth := Image.Width;
+  ImgHeight := Image.Height;
+  canvasCenterX := ImgWidth div 2;
+  canvasCenterY := ImgHeight div 2;
+
+  SetLength(MC, 1, 4);
+  SetLength(MResultado, 1, 4);
+  MC[0, 3] := 1.0;
+
+  // Passo menor para maior qualidade
+  step := 0.02;
+
+  u := 0;
+  while u <= 1.0 do
+  begin
+    v := 0;
+    while v <= 1.0 do
+    begin
+      // Calcula P(u,v) usando interpolaÁ„o bilinear
+      P_uv.x := P00.x * (1 - u) * (1 - v) +
+                P01.x * (1 - u) * v +
+                P10.x * u * (1 - v) +
+                P11.x * u * v;
+
+      P_uv.y := P00.y * (1 - u) * (1 - v) +
+                P01.y * (1 - u) * v +
+                P10.y * u * (1 - v) +
+                P11.y * u * v;
+
+      P_uv.z := P00.z * (1 - u) * (1 - v) +
+                P01.z * (1 - u) * v +
+                P10.z * u * (1 - v) +
+                P11.z * u * v;
+
+      MC[0, 0] := P_uv.x;
+      MC[0, 1] := P_uv.y;
+      MC[0, 2] := P_uv.z;
+
+      MultiplicarMatrizes(MC, MTransform, MResultado);
+
+      px := canvasCenterX + Round(MResultado[0, 0]);
+      py := canvasCenterY - Round(MResultado[0, 1]);
+      z_prof := MResultado[0, 2];
+
+      if (px >= 0) and (px < ImgWidth) and (py >= 0) and (py < ImgHeight) then
+      begin
+        if z_prof < ZBuffer[py, px] then
+        begin
+          ZBuffer[py, px] := z_prof;
+          Image.Canvas.Pixels[px, py] := Cor;
+        end;
+      end;
+
+      v := v + step;
+    end;
+    u := u + step;
+  end;
+
+  SetLength(MC, 0, 0);
+  SetLength(MResultado, 0, 0);
 end;
 
 end.
